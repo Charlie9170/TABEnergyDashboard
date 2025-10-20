@@ -34,8 +34,8 @@ def render():
         # Load data
         df = load_parquet("queue.parquet", "queue")
         
-        # Add color column based on fuel type
-        df['color'] = df['fuel'].apply(lambda f: get_fuel_color_rgba(f, alpha=200))
+        # Add color column based on fuel type (using list comprehension to avoid pandas indexing issues)
+        df['color'] = [get_fuel_color_rgba(f, alpha=200) for f in df['fuel']]
         
         # Scale radius by proposed capacity (30m per MW, capped at 1500m)
         df['radius'] = df['proposed_mw'].apply(lambda x: min(x * 30, 1500))
@@ -86,10 +86,13 @@ def render():
                 pitch=0,
             )
             
+            # Convert to list of dicts for pydeck (avoids JSON serialization issues)
+            data_for_pydeck = df.to_dict('records')
+            
             # ScatterplotLayer for queue projects
             layer = pdk.Layer(
                 'ScatterplotLayer',
-                data=df,
+                data=data_for_pydeck,
                 get_position='[lon, lat]',
                 get_color='color',
                 get_radius='radius',

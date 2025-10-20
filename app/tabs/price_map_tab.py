@@ -38,7 +38,7 @@ def render():
             q=5,
             labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'],
             duplicates='drop'
-        )
+        ).astype(str)  # Convert categorical to string to avoid hashing issues
         
         # Map quantiles to colors (green to red scale)
         quantile_colors = {
@@ -49,7 +49,8 @@ def render():
             'Very High': [239, 68, 68, 200],   # Red
         }
         
-        df['color'] = df['price_quantile'].map(quantile_colors)
+        # Assign colors using list comprehension to avoid pandas indexing issues
+        df['color'] = [quantile_colors[q] for q in df['price_quantile']]
         
         # Calculate radius based on price (scale to 100-1000 meters)
         min_price = df['price_cperkwh'].min()
@@ -97,10 +98,13 @@ def render():
             pitch=0,
         )
         
+        # Convert to list of dicts for pydeck (avoids JSON serialization issues)
+        data_for_pydeck = df.to_dict('records')
+        
         # ScatterplotLayer for price nodes
         layer = pdk.Layer(
             'ScatterplotLayer',
-            data=df,
+            data=data_for_pydeck,
             get_position='[lon, lat]',
             get_color='color',
             get_radius='radius',
