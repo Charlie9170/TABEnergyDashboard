@@ -116,7 +116,7 @@ def fetch_eia_data(api_key: str, start_date: str, end_date: str) -> pd.DataFrame
             all_data.extend(data)
             
             # Check if there's more data
-            total = result['response'].get('total', 0)
+            total = int(result['response'].get('total', 0))  # Convert string to int
             if offset + length >= total:
                 break
             
