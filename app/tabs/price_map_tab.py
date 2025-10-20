@@ -112,53 +112,38 @@ def render():
         
         st.markdown("")  # Spacing
         
-        # Create pydeck map
+        # Calculate map center from data
+        center_lat = df['lat'].mean()
+        center_lon = df['lon'].mean()
+        
+        # Define view state for Texas
         view_state = pdk.ViewState(
-            latitude=df['lat'].mean(),
-            longitude=df['lon'].mean(),
-            zoom=5.5,
+            latitude=center_lat,
+            longitude=center_lon,
+            zoom=6,
             pitch=0,
         )
         
-        # Convert to list of dicts for pydeck (avoids JSON serialization issues)
-        data_for_pydeck = df.to_dict('records')
-        
-        # ScatterplotLayer for price nodes
+        # Create pydeck layer  
         layer = pdk.Layer(
-            'ScatterplotLayer',
-            data=data_for_pydeck,
-            get_position='[lon, lat]',
+            "ScatterplotLayer",
+            data=df,
+            get_position=['lon', 'lat'],
             get_color='color',
             get_radius='radius',
+            radius_scale=1,
+            radius_min_pixels=8,
+            radius_max_pixels=100,
             pickable=True,
-            opacity=0.7,
             stroked=True,
             filled=True,
             line_width_min_pixels=1,
         )
         
-        # Tooltip configuration
-        tooltip = {
-            "html": """
-            <b>Node:</b> {node_id}<br/>
-            <b>Region:</b> {region}<br/>
-            <b>Price:</b> {price_cperkwh:.2f}¢/kWh<br/>
-            <b>Level:</b> {price_quantile}
-            """,
-            "style": {
-                "backgroundColor": "#1f2937",
-                "color": "#e5e7eb",
-                "border": "1px solid #374151",
-                "borderRadius": "4px",
-                "padding": "8px"
-            }
-        }
-        
-        # Render map
+        # Render map (remove problematic tooltip for now)
         deck = pdk.Deck(
             layers=[layer],
             initial_view_state=view_state,
-            tooltip=tooltip,
             map_style='mapbox://styles/mapbox/dark-v10',
         )
         

@@ -27,11 +27,12 @@ DATA_SOURCES = {
         'target_url': 'https://www.ercot.com/content/cdr/contours/rtmLmp.html',
     },
     'generation': {
-        'status': 'stub',
-        'source': 'Empty Schema (Not Implemented)',
-        'note': 'Placeholder for EIA Power Plants data',
-        'target_source': 'EIA Atlas Power Plants Feature Service',
-        'target_url': 'https://atlas.eia.gov/datasets/eia::power-plants/',
+        'status': 'live',
+        'source': 'U.S. Energy Information Administration (EIA)',
+        'api': 'EIA v2 API - Operating Generator Capacity',
+        'coverage': 'Texas power plants ≥1 MW capacity',
+        'update_frequency': 'Monthly from EIA (manual ETL execution)',
+        'url': 'https://www.eia.gov/opendata/',
     },
     'queue': {
         'status': 'stub',

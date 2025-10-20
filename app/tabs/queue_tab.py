@@ -125,28 +125,10 @@ def render():
                 line_width_min_pixels=1,
             )
             
-            # Tooltip configuration
-            tooltip = {
-                "html": """
-                <b>{project_name}</b><br/>
-                <b>Fuel:</b> {fuel}<br/>
-                <b>Capacity:</b> {proposed_mw:.1f} MW<br/>
-                <b>Status:</b> {status}
-                """,
-                "style": {
-                    "backgroundColor": "#1f2937",
-                    "color": "#e5e7eb",
-                    "border": "1px solid #374151",
-                    "borderRadius": "4px",
-                    "padding": "8px"
-                }
-            }
-            
-            # Render map
+            # Render map (tooltip removed due to compatibility issues)
             deck = pdk.Deck(
                 layers=[layer],
                 initial_view_state=view_state,
-                tooltip=tooltip,
                 map_style='mapbox://styles/mapbox/dark-v10',
             )
             
