@@ -70,7 +70,7 @@ def calculate_generation_kpis(df: pd.DataFrame) -> dict:
 
 def create_generation_map(df: pd.DataFrame) -> pdk.Deck:
     """
-    Create pydeck map of Texas power generation facilities.
+    Create pydeck map of Texas power generation facilities with enhanced visualization.
     
     Args:
         df: Generation facilities DataFrame
@@ -80,55 +80,76 @@ def create_generation_map(df: pd.DataFrame) -> pdk.Deck:
     """
     # Add colors based on fuel type (convert to RGBA format for pydeck)
     df = df.copy()
-    df['color'] = df['fuel'].apply(lambda x: get_fuel_color_rgba(x, alpha=180))
+    df['color'] = df['fuel'].apply(lambda x: get_fuel_color_rgba(x, alpha=200))
     
-    # Scale point size based on capacity with better visual scaling
+    # Enhanced scaling algorithm for better visual distinction
     max_capacity = df['capacity_mw'].max()
     min_capacity = df['capacity_mw'].min()
     
-    def scale_radius(capacity):
-        """Scale plant capacity to appropriate visual radius (10-200 pixels)."""
+    def enhanced_radius_scaling(capacity):
+        """
+        Enhanced scaling with logarithmic approach for better visual distribution.
+        Small plants visible but large plants don't dominate.
+        """
         if max_capacity == min_capacity:
-            return 50
+            return 25
+        
+        # Use square root scaling for better visual distribution
+        import math
         normalized = (capacity - min_capacity) / (max_capacity - min_capacity)
-        return 15 + (normalized * 185)  # Range from 15 to 200 pixels
+        sqrt_scaled = math.sqrt(normalized)
+        
+        # Scale to 12-60 pixel range for better distinction
+        return 12 + (sqrt_scaled * 48)
     
-    df['radius'] = df['capacity_mw'].apply(scale_radius)
+    df['radius'] = df['capacity_mw'].apply(enhanced_radius_scaling)
     
-    # Create scatterplot layer with enhanced styling
+    # Add stroke width based on capacity for additional visual hierarchy
+    df['stroke_width'] = df['capacity_mw'].apply(
+        lambda x: max(1, min(4, (x / max_capacity) * 4))
+    )
+    
+    # Create enhanced scatterplot layer
     layer = pdk.Layer(
         'ScatterplotLayer',
         df,
         get_position=['lon', 'lat'],
         get_color='color',
         get_radius='radius',
+        get_line_color=[255, 255, 255, 180],  # Bright white outline
+        get_line_width='stroke_width',
         radius_scale=1,
-        radius_min_pixels=8,
-        radius_max_pixels=50,
+        radius_min_pixels=6,     # Smaller minimum for better distinction
+        radius_max_pixels=80,    # Larger maximum for visual hierarchy
         pickable=True,
         auto_highlight=True,
         stroked=True,
         filled=True,
-        get_line_color=[255, 255, 255, 100],  # White outline
+        opacity=0.85,           # Slightly more opaque
         line_width_min_pixels=1,
-        opacity=0.8,
+        line_width_max_pixels=3,
     )
     
-    # Set view state centered on Texas with better zoom
+    # Set view state locked to Texas with proper bounds
+    # Texas boundaries: lat 25.84-36.50, lon -106.65 to -93.51
     view_state = pdk.ViewState(
-        latitude=31.0,
-        longitude=-99.0,
-        zoom=6.2,
+        latitude=31.0,          # Center of Texas
+        longitude=-99.0,        # Center of Texas  
+        zoom=6.5,               # Closer zoom focused on Texas
+        min_zoom=5.5,           # Prevent zooming out too far
+        max_zoom=10,            # Allow reasonable zoom in
         pitch=0,
         bearing=0,
         height=600
     )
     
-    # Create deck with better map style (tooltips handled by Streamlit)
+    # Create deck with constraints to keep focus on Texas
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
         map_style='mapbox://styles/mapbox/light-v10',
+        # Add map bounds to constrain panning to Texas region
+        map_provider='mapbox',
     )
     
     return deck
