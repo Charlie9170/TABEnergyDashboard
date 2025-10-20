@@ -8,14 +8,15 @@ ensuring visual consistency throughout the application.
 # Standard fuel color palette (hex values)
 FUEL_COLORS_HEX = {
     "GAS": "#fb923c",      # Orange - Natural Gas
-    "WIND": "#14b8a6",     # Teal - Wind Energy
-    "SOLAR": "#eab308",    # Yellow - Solar Energy
-    "SUN": "#eab308",      # Alias for Solar
-    "COAL": "#6b7280",     # Gray - Coal
+    "COAL": "#6b7280",     # Gray - Coal  
     "NUCLEAR": "#9333ea",  # Purple - Nuclear
-    "STORAGE": "#3b82f6",  # Blue - Battery Storage
+    "SOLAR": "#eab308",    # Yellow - Solar Energy
+    "WIND": "#14b8a6",     # Teal - Wind Energy
     "HYDRO": "#06b6d4",    # Cyan - Hydroelectric
+    "STORAGE": "#3b82f6",  # Blue - Battery Storage
+    "OIL": "#dc2626",      # Red - Petroleum/Oil
     "BIOMASS": "#84cc16",  # Lime - Biomass
+    "SUN": "#eab308",      # Alias for Solar
     "OTHER": "#64748b",    # Slate - Other/Unknown
 }
 

@@ -78,45 +78,57 @@ def create_generation_map(df: pd.DataFrame) -> pdk.Deck:
     Returns:
         Configured pydeck Deck
     """
-    # Add colors based on fuel type
+    # Add colors based on fuel type (convert to RGBA format for pydeck)
     df = df.copy()
-    df['color'] = df['fuel'].apply(get_fuel_color_rgba)
+    df['color'] = df['fuel'].apply(lambda x: get_fuel_color_rgba(x, alpha=180))
     
-    # Scale point size based on capacity (min 50, max 500 pixels)
+    # Scale point size based on capacity with better visual scaling
     max_capacity = df['capacity_mw'].max()
-    min_size, max_size = 50, 500
-    df['size'] = df['capacity_mw'].apply(
-        lambda x: min_size + (max_size - min_size) * (x / max_capacity)
-    )
+    min_capacity = df['capacity_mw'].min()
     
-    # Create scatterplot layer
+    def scale_radius(capacity):
+        """Scale plant capacity to appropriate visual radius (10-200 pixels)."""
+        if max_capacity == min_capacity:
+            return 50
+        normalized = (capacity - min_capacity) / (max_capacity - min_capacity)
+        return 15 + (normalized * 185)  # Range from 15 to 200 pixels
+    
+    df['radius'] = df['capacity_mw'].apply(scale_radius)
+    
+    # Create scatterplot layer with enhanced styling
     layer = pdk.Layer(
         'ScatterplotLayer',
         df,
         get_position=['lon', 'lat'],
         get_color='color',
-        get_radius='size',
+        get_radius='radius',
         radius_scale=1,
         radius_min_pixels=8,
         radius_max_pixels=50,
         pickable=True,
         auto_highlight=True,
+        stroked=True,
+        filled=True,
+        get_line_color=[255, 255, 255, 100],  # White outline
+        line_width_min_pixels=1,
+        opacity=0.8,
     )
     
-    # Set view state centered on Texas
+    # Set view state centered on Texas with better zoom
     view_state = pdk.ViewState(
         latitude=31.0,
         longitude=-99.0,
-        zoom=5.8,
+        zoom=6.2,
         pitch=0,
-        bearing=0
+        bearing=0,
+        height=600
     )
     
-    # Create deck (tooltip will be handled by Streamlit pydeck)
+    # Create deck with better map style (tooltips handled by Streamlit)
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
-        map_style='mapbox://styles/mapbox/light-v9',
+        map_style='mapbox://styles/mapbox/light-v10',
     )
     
     return deck
@@ -154,10 +166,19 @@ def render():
             )
         
         with col3:
+            # Find the dominant fuel (excluding OTHER if possible)
+            fuel_by_capacity = kpis['fuel_breakdown']
+            if len(fuel_by_capacity) > 1 and fuel_by_capacity.index[0] == 'OTHER':
+                dominant_fuel = fuel_by_capacity.index[1]  # Use second largest if OTHER is first
+                dominant_pct = (fuel_by_capacity.iloc[1] / kpis['total_capacity']) * 100
+            else:
+                dominant_fuel = fuel_by_capacity.index[0]
+                dominant_pct = (fuel_by_capacity.iloc[0] / kpis['total_capacity']) * 100
+                
             st.metric(
                 "Dominant Fuel",
-                kpis['largest_fuel'],
-                f"{kpis['largest_fuel_pct']:.1f}% of capacity",
+                dominant_fuel,
+                f"{dominant_pct:.1f}% of capacity",
                 help="Primary fuel type by total installed capacity"
             )
         
@@ -175,12 +196,35 @@ def render():
         deck = create_generation_map(df)
         st.pydeck_chart(deck, use_container_width=True)
         
-        # Legend
+        # Enhanced legend with fuel colors
+        st.markdown("**Map Legend:**")
+        
+        # Create color legend in columns
+        fuel_counts = df['fuel'].value_counts()
+        cols = st.columns(min(5, len(fuel_counts)))  # Max 5 columns
+        
+        from utils.colors import FUEL_COLORS_HEX
+        
+        for i, (fuel, count) in enumerate(fuel_counts.items()):
+            col_idx = i % len(cols)
+            color = FUEL_COLORS_HEX.get(str(fuel).upper(), '#64748b')
+            capacity = df[df['fuel'] == fuel]['capacity_mw'].sum()
+            
+            with cols[col_idx]:
+                st.markdown(
+                    f'''
+                    <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                        <div style="width: 12px; height: 12px; background-color: {color}; 
+                                    border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
+                        <span style="font-size: 13px;"><b>{fuel}</b>: {count} plants ({capacity:,.0f} MW)</span>
+                    </div>
+                    ''', 
+                    unsafe_allow_html=True
+                )
+        
         st.markdown("""
-        **Map Legend:**
-        - 🔵 **Point Size**: Proportional to plant capacity (MW)  
-        - 🎨 **Colors**: Fuel type (hover for details)
-        - 📍 **Click**: View facility details
+        - 📏 **Point Size**: Proportional to plant capacity (MW)  
+        - 📍 **Hover**: View detailed facility information
         """)
         
         # Fuel breakdown chart
