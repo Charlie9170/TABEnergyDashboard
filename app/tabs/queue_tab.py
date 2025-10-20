@@ -24,11 +24,32 @@ from utils.colors import get_fuel_color_rgba, FUEL_COLORS_HEX
 def render():
     """Render the Interconnection Queue tab."""
     
+    # Feature not implemented warning
+    st.markdown("""
+    <div style="
+        background-color: #fef3c7; 
+        border: 3px dashed #d97706; 
+        padding: 20px; 
+        border-radius: 10px; 
+        margin: 20px 0;
+        text-align: center;
+        color: #92400e;
+    ">
+        <h3 style="margin-top: 0; color: #d97706;">🚧 FEATURE NOT IMPLEMENTED 🚧</h3>
+        <p style="font-size: 1.1em; margin-bottom: 10px;">
+            This tab shows the <strong>planned interface design</strong>
+        </p>
+        <p style="font-size: 0.9em; margin-bottom: 0; opacity: 0.8;">
+            Will be populated with ERCOT interconnection queue data when implemented
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Header
     st.header("ERCOT Interconnection Queue")
     st.markdown(
-        "Proposed generation projects seeking connection to the ERCOT grid. "
-        "Projects are color-coded by fuel type, showing the future of Texas energy infrastructure."
+        "Proposed generation projects in various stages of the ERCOT interconnection process. "
+        "Shows the pipeline of future generation capacity by fuel type and status."
     )
     
     try:

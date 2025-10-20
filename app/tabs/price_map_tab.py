@@ -22,6 +22,27 @@ from utils.data_sources import render_data_source_footer
 def render():
     """Render the Price Map tab."""
     
+    # Temporary demo data warning
+    st.markdown("""
+    <div style="
+        background-color: #fef2f2; 
+        border: 3px dashed #dc2626; 
+        padding: 20px; 
+        border-radius: 10px; 
+        margin: 20px 0;
+        text-align: center;
+        color: #991b1b;
+    ">
+        <h3 style="margin-top: 0; color: #dc2626;">⚠️ DEMO DATA ONLY ⚠️</h3>
+        <p style="font-size: 1.1em; margin-bottom: 10px;">
+            This map shows <strong>sample data for development purposes</strong>
+        </p>
+        <p style="font-size: 0.9em; margin-bottom: 0; opacity: 0.8;">
+            Will be replaced with real ERCOT price data when implemented
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Header
     st.header("ERCOT Price Map")
     st.markdown(

@@ -84,35 +84,54 @@ def render_data_source_footer(dataset: str, last_updated: Optional[str] = None) 
     # Status indicator
     st.markdown("---")
     
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        if status == 'live':
-            st.markdown(f"""
-            **📊 Data Source:** {source_info['source']}  
-            **🔌 API:** {source_info['api']}  
-            **🔄 Updates:** {source_info['update_frequency']}  
-            {f"**⏰ Last Updated:** {last_updated}" if last_updated else ""}
-            """)
-            
-        elif status == 'demo':
-            st.markdown(f"""
-            **⚠️ {get_data_status_badge(dataset)}** - This tab shows demonstration data for development purposes.  
-            **🎯 Target Source:** {source_info['target_source']}  
-            **📝 Note:** {source_info['note']}
-            """)
-            
-        elif status == 'stub':
-            st.markdown(f"""
-            **🚧 {get_data_status_badge(dataset)}** - This feature is planned but not yet implemented.  
-            **🎯 Planned Source:** {source_info['target_source']}  
-            **📝 Implementation:** {source_info['note']}
-            """)
-    
-    with col2:
+    if status == 'live':
+        # Clean, professional footer for live data
         st.markdown(f"""
-        <div style="text-align: right; font-size: 0.8em; color: #9ca3af;">
-            {get_data_status_badge(dataset)}
+        **📊 Data Source:** {source_info['source']}  
+        **🔌 API:** {source_info['api']}  
+        **🔄 Updates:** {source_info['update_frequency']}  
+        {f"**⏰ Last Updated:** {last_updated}" if last_updated else ""}
+        """)
+        
+    elif status == 'demo':
+        # Red warning box for demo data - intentionally temporary looking
+        st.markdown(f"""
+        <div style="
+            background-color: #fef2f2; 
+            border: 3px dashed #dc2626; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0;
+            color: #991b1b;
+            font-weight: bold;
+        ">
+            ⚠️ TEMPORARY DEMO DATA ⚠️<br>
+            <span style="font-size: 0.9em;">This section uses sample data for development only.</span><br>
+            <span style="font-size: 0.8em; font-weight: normal;">
+                🎯 <strong>Will be replaced with:</strong> {source_info['target_source']}<br>
+                📝 <strong>Note:</strong> {source_info['note']}
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    elif status == 'stub':
+        # Orange construction box for not implemented features
+        st.markdown(f"""
+        <div style="
+            background-color: #fef3c7; 
+            border: 3px dashed #d97706; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0;
+            color: #92400e;
+            font-weight: bold;
+        ">
+            🚧 FEATURE NOT IMPLEMENTED 🚧<br>
+            <span style="font-size: 0.9em;">This tab is a placeholder showing the planned interface.</span><br>
+            <span style="font-size: 0.8em; font-weight: normal;">
+                🎯 <strong>Planned Source:</strong> {source_info['target_source']}<br>
+                📝 <strong>Implementation:</strong> {source_info['note']}
+            </span>
         </div>
         """, unsafe_allow_html=True)
 

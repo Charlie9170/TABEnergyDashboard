@@ -23,6 +23,27 @@ from utils.data_sources import render_data_source_footer
 def render():
     """Render the Generation Map tab."""
     
+    # Feature not implemented warning
+    st.markdown("""
+    <div style="
+        background-color: #fef3c7; 
+        border: 3px dashed #d97706; 
+        padding: 20px; 
+        border-radius: 10px; 
+        margin: 20px 0;
+        text-align: center;
+        color: #92400e;
+    ">
+        <h3 style="margin-top: 0; color: #d97706;">🚧 FEATURE NOT IMPLEMENTED 🚧</h3>
+        <p style="font-size: 1.1em; margin-bottom: 10px;">
+            This tab shows the <strong>planned interface design</strong>
+        </p>
+        <p style="font-size: 0.9em; margin-bottom: 0; opacity: 0.8;">
+            Will be populated with EIA Power Plants data when implemented
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Header
     st.header("Texas Power Generation Map")
     st.markdown(

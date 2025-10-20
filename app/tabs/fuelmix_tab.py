@@ -24,6 +24,24 @@ from utils.data_sources import render_data_source_footer
 def render():
     """Render the Fuel Mix tab."""
     
+    # Live data indicator
+    st.markdown("""
+    <div style="
+        background-color: #dcfce7; 
+        border: 2px solid #16a34a; 
+        padding: 15px; 
+        border-radius: 8px; 
+        margin: 20px 0;
+        text-align: center;
+        color: #15803d;
+    ">
+        <h4 style="margin-top: 0; color: #16a34a;">🟢 LIVE DATA - Real EIA API Integration</h4>
+        <p style="font-size: 0.9em; margin-bottom: 0; opacity: 0.8;">
+            Automatically updated every 6 hours with real ERCOT generation data
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Header
     st.header("ERCOT Fuel Mix")
     st.markdown(
