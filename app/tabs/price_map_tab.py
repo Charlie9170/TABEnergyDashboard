@@ -1,0 +1,170 @@
+"""
+Price Map Tab - ERCOT Node Price Visualization
+
+Displays electricity prices across ERCOT nodes:
+- Interactive map with dot size proportional to price
+- Color-coded by price quantiles
+- Geographic distribution of electricity costs
+"""
+
+import streamlit as st
+import pandas as pd
+import pydeck as pdk
+
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
+
+from utils.loaders import load_parquet, get_last_updated
+
+
+def render():
+    """Render the Price Map tab."""
+    
+    # Header
+    st.header("ERCOT Price Map")
+    st.markdown(
+        "Real-time locational marginal prices (LMP) across ERCOT nodes. "
+        "Dot size indicates price level; larger dots represent higher prices."
+    )
+    
+    try:
+        # Load data
+        df = load_parquet("price_map.parquet", "price_map")
+        
+        # Calculate price quantiles for color coding
+        df['price_quantile'] = pd.qcut(
+            df['price_cperkwh'],
+            q=5,
+            labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'],
+            duplicates='drop'
+        )
+        
+        # Map quantiles to colors (green to red scale)
+        quantile_colors = {
+            'Very Low': [20, 184, 166, 200],   # Teal
+            'Low': [52, 211, 153, 200],        # Green
+            'Medium': [234, 179, 8, 200],      # Yellow
+            'High': [251, 146, 60, 200],       # Orange
+            'Very High': [239, 68, 68, 200],   # Red
+        }
+        
+        df['color'] = df['price_quantile'].map(quantile_colors)
+        
+        # Calculate radius based on price (scale to 100-1000 meters)
+        min_price = df['price_cperkwh'].min()
+        max_price = df['price_cperkwh'].max()
+        price_range = max_price - min_price if max_price > min_price else 1
+        df['radius'] = 100 + ((df['price_cperkwh'] - min_price) / price_range) * 900
+        
+        # Summary stats
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            avg_price = df['price_cperkwh'].mean()
+            st.markdown(f"""
+            <div class="kpi-card">
+                <p class="kpi-value">{avg_price:.2f}¢</p>
+                <p class="kpi-label">Average Price/kWh</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            min_price_val = df['price_cperkwh'].min()
+            st.markdown(f"""
+            <div class="kpi-card">
+                <p class="kpi-value">{min_price_val:.2f}¢</p>
+                <p class="kpi-label">Minimum Price/kWh</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            max_price_val = df['price_cperkwh'].max()
+            st.markdown(f"""
+            <div class="kpi-card">
+                <p class="kpi-value">{max_price_val:.2f}¢</p>
+                <p class="kpi-label">Maximum Price/kWh</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown("")  # Spacing
+        
+        # Create pydeck map
+        view_state = pdk.ViewState(
+            latitude=df['lat'].mean(),
+            longitude=df['lon'].mean(),
+            zoom=5.5,
+            pitch=0,
+        )
+        
+        # ScatterplotLayer for price nodes
+        layer = pdk.Layer(
+            'ScatterplotLayer',
+            data=df,
+            get_position='[lon, lat]',
+            get_color='color',
+            get_radius='radius',
+            pickable=True,
+            opacity=0.7,
+            stroked=True,
+            filled=True,
+            line_width_min_pixels=1,
+        )
+        
+        # Tooltip configuration
+        tooltip = {
+            "html": """
+            <b>Node:</b> {node_id}<br/>
+            <b>Region:</b> {region}<br/>
+            <b>Price:</b> {price_cperkwh:.2f}¢/kWh<br/>
+            <b>Level:</b> {price_quantile}
+            """,
+            "style": {
+                "backgroundColor": "#1f2937",
+                "color": "#e5e7eb",
+                "border": "1px solid #374151",
+                "borderRadius": "4px",
+                "padding": "8px"
+            }
+        }
+        
+        # Render map
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+            tooltip=tooltip,
+            map_style='mapbox://styles/mapbox/dark-v10',
+        )
+        
+        st.pydeck_chart(deck)
+        
+        # Legend
+        st.markdown("### Price Levels")
+        legend_cols = st.columns(5)
+        legend_items = [
+            ('Very Low', '#14b8a6'),
+            ('Low', '#34d399'),
+            ('Medium', '#eab308'),
+            ('High', '#fb923c'),
+            ('Very High', '#ef4444'),
+        ]
+        
+        for col, (label, color) in zip(legend_cols, legend_items):
+            col.markdown(
+                f'<div style="display: inline-block; width: 16px; height: 16px; '
+                f'background-color: {color}; border-radius: 50%; margin-right: 8px;"></div> {label}',
+                unsafe_allow_html=True
+            )
+        
+        # Footer
+        last_updated = get_last_updated(df)
+        st.markdown(f"""
+        <div class="footer">
+            <strong>Source:</strong> ERCOT Real-Time Market • 
+            <strong>Last Updated:</strong> {last_updated}
+        </div>
+        """, unsafe_allow_html=True)
+        
+    except Exception as e:
+        st.error(f"Error loading price map data: {str(e)}")
+        st.info("Please ensure the ETL script has been run to generate the data file.")
