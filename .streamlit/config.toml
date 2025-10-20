@@ -1,0 +1,25 @@
+# Streamlit Configuration
+# Dark theme with TAB Energy Dashboard branding
+
+[theme]
+# Primary color (green for energy/sustainability)
+primaryColor = "#16a34a"
+
+# Background colors (dark theme)
+backgroundColor = "#0f172a"
+secondaryBackgroundColor = "#111827"
+
+# Text color (light gray for readability)
+textColor = "#e5e7eb"
+
+# Font (system default, clean and professional)
+font = "sans serif"
+
+[server]
+# Enable file watcher for development
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+# Automatically open browser on startup (for local dev)
+gatherUsageStats = false
