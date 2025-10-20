@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
+from utils.data_sources import render_data_source_footer
 
 
 def render():
@@ -160,14 +161,9 @@ def render():
                 unsafe_allow_html=True
             )
         
-        # Footer
+        # Data source footer
         last_updated = get_last_updated(df)
-        st.markdown(f"""
-        <div class="footer">
-            <strong>Source:</strong> ERCOT Real-Time Market • 
-            <strong>Last Updated:</strong> {last_updated}
-        </div>
-        """, unsafe_allow_html=True)
+        render_data_source_footer('price_map', last_updated)
         
     except Exception as e:
         st.error(f"Error loading price map data: {str(e)}")

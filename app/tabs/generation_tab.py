@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
 from utils.colors import get_fuel_color_rgba, FUEL_COLORS_HEX
+from utils.data_sources import render_data_source_footer
 
 
 def render():
@@ -146,14 +147,9 @@ def render():
                         unsafe_allow_html=True
                     )
         
-        # Footer
+        # Data source footer
         last_updated = get_last_updated(df)
-        st.markdown(f"""
-        <div class="footer">
-            <strong>Source:</strong> U.S. Energy Information Administration (EIA) • 
-            <strong>Last Updated:</strong> {last_updated}
-        </div>
-        """, unsafe_allow_html=True)
+        render_data_source_footer('generation', last_updated)
         
     except Exception as e:
         st.error(f"Error loading generation data: {str(e)}")

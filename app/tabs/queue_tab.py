@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
+from utils.data_sources import render_data_source_footer
 from utils.colors import get_fuel_color_rgba, FUEL_COLORS_HEX
 
 
@@ -179,14 +180,9 @@ def render():
                 hide_index=True,
             )
         
-        # Footer
+        # Data source footer
         last_updated = get_last_updated(df)
-        st.markdown(f"""
-        <div class="footer">
-            <strong>Source:</strong> ERCOT Interconnection Queue • 
-            <strong>Last Updated:</strong> {last_updated}
-        </div>
-        """, unsafe_allow_html=True)
+        render_data_source_footer('queue', last_updated)
         
     except Exception as e:
         st.error(f"Error loading interconnection queue data: {str(e)}")

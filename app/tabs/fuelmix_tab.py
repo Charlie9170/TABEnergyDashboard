@@ -18,6 +18,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
 from utils.colors import FUEL_COLORS_HEX, is_renewable
+from utils.data_sources import render_data_source_footer
 
 
 def render():
@@ -117,14 +118,9 @@ def render():
         
         st.plotly_chart(fig, use_container_width=True)
         
-        # Footer
+        # Data source footer
         last_updated = get_last_updated(df)
-        st.markdown(f"""
-        <div class="footer">
-            <strong>Source:</strong> U.S. Energy Information Administration (EIA) • 
-            <strong>Last Updated:</strong> {last_updated}
-        </div>
-        """, unsafe_allow_html=True)
+        render_data_source_footer('fuelmix', last_updated)
         
     except Exception as e:
         st.error(f"Error loading fuel mix data: {str(e)}")

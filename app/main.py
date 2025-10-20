@@ -14,6 +14,7 @@ import streamlit as st
 
 # Import tab modules
 from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab
+from utils.data_sources import render_dashboard_disclaimer
 
 # Page configuration
 st.set_page_config(
@@ -88,6 +89,9 @@ elif tab_selection == "Generation Map":
     generation_tab.render()
 elif tab_selection == "Interconnection Queue":
     queue_tab.render()
+
+# Global dashboard disclaimer and status
+render_dashboard_disclaimer()
 
 # Footer with info
 st.sidebar.markdown("---")
