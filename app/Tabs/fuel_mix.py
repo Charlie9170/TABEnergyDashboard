@@ -4,7 +4,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
-from app.utils import load_fuel_mix_data, FUEL_COLORS
+from ..utils import load_fuel_mix_data, FUEL_COLORS
 
 def render_fuel_mix_tab():
     """Render the ERCOT Fuel Mix tab."""

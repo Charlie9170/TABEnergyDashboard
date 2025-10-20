@@ -1,7 +1,7 @@
 """Texas Association of Business Energy Dashboard - Main Application."""
 
 import streamlit as st
-from Tabs import (
+from app.Tabs import (
     render_fuel_mix_tab,
     render_price_map_tab,
     render_generation_map_tab,
