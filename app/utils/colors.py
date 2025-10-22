@@ -5,19 +5,19 @@ Defines the standard color scheme for fuel types used in all charts and maps,
 ensuring visual consistency throughout the application.
 """
 
-# Standard fuel color palette (hex values)
+# Professional TAB color palette (hex values) - complementing txbiznews.com design
 FUEL_COLORS_HEX = {
-    "GAS": "#fb923c",      # Orange - Natural Gas
-    "COAL": "#6b7280",     # Gray - Coal  
-    "NUCLEAR": "#9333ea",  # Purple - Nuclear
-    "SOLAR": "#eab308",    # Yellow - Solar Energy
-    "WIND": "#14b8a6",     # Teal - Wind Energy
-    "HYDRO": "#06b6d4",    # Cyan - Hydroelectric
-    "STORAGE": "#3b82f6",  # Blue - Battery Storage
-    "OIL": "#dc2626",      # Red - Petroleum/Oil
-    "BIOMASS": "#84cc16",  # Lime - Biomass
-    "SUN": "#eab308",      # Alias for Solar
-    "OTHER": "#64748b",    # Slate - Other/Unknown
+    "GAS": "#FF6B35",      # Professional Orange - Natural Gas
+    "COAL": "#495057",     # Professional Gray - Coal  
+    "NUCLEAR": "#6F42C1",  # Professional Purple - Nuclear
+    "SOLAR": "#FFC107",    # Professional Gold - Solar Energy
+    "WIND": "#20C997",     # Professional Teal - Wind Energy
+    "HYDRO": "#17A2B8",    # Professional Cyan - Hydroelectric
+    "STORAGE": "#007BFF",  # Professional Blue - Battery Storage
+    "OIL": "#C8102E",      # TAB Red - Petroleum/Oil
+    "BIOMASS": "#28A745",  # Professional Green - Biomass
+    "SUN": "#FFC107",      # Alias for Solar
+    "OTHER": "#6C757D",    # Professional Gray - Other/Unknown
 }
 
 
@@ -31,7 +31,23 @@ def get_fuel_color_hex(fuel_type: str) -> str:
     Returns:
         Hex color string (e.g., '#fb923c')
     """
-    return FUEL_COLORS_HEX.get(fuel_type.upper(), FUEL_COLORS_HEX["OTHER"])
+    # Normalize fuel type and handle variations
+    fuel_normalized = fuel_type.upper().strip()
+    
+    # Handle fuel type variations
+    if "SOLAR" in fuel_normalized or "SUN" in fuel_normalized:
+        return FUEL_COLORS_HEX["SOLAR"]
+    elif "WIND" in fuel_normalized:
+        return FUEL_COLORS_HEX["WIND"] 
+    elif "GAS" in fuel_normalized or fuel_normalized == "NATURAL GAS":
+        return FUEL_COLORS_HEX["GAS"]
+    elif "BATTERY" in fuel_normalized or "STORAGE" in fuel_normalized:
+        return FUEL_COLORS_HEX["STORAGE"]
+    elif "DIESEL" in fuel_normalized or "OIL" in fuel_normalized:
+        return FUEL_COLORS_HEX["OIL"]
+    
+    # Direct lookup for exact matches
+    return FUEL_COLORS_HEX.get(fuel_normalized, FUEL_COLORS_HEX["OTHER"])
 
 
 def get_fuel_color_rgb(fuel_type: str) -> list:

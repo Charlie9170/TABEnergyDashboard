@@ -35,11 +35,13 @@ DATA_SOURCES = {
         'url': 'https://www.eia.gov/opendata/',
     },
     'queue': {
-        'status': 'stub',
-        'source': 'Empty Schema (Not Implemented)', 
-        'note': 'Placeholder for ERCOT interconnection queue data',
-        'target_source': 'ERCOT Public Reports or interconnection.fyi',
-        'target_url': 'https://www.interconnection.fyi/?market=ERCOT',
+        'status': 'live',
+        'source': 'Electric Reliability Council of Texas (ERCOT)',
+        'api': 'ERCOT Capacity, Demand and Reserves (CDR) Report',
+        'coverage': 'Planned generation projects in interconnection queue',
+        'update_frequency': 'Monthly via ERCOT CDR Report publication',
+        'url': 'https://www.ercot.com/gridinfo/resource',
+        'data_file': 'CapacityDemandandReservesReport_May2025_Revised.xlsx'
     }
 }
 

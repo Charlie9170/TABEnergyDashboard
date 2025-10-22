@@ -51,10 +51,10 @@ def get_api_key():
             pass
     
     if not api_key:
-        raise ValueError(
-            "EIA_API_KEY not found. Please set it as an environment variable "
-            "or in Streamlit secrets (.streamlit/secrets.toml)"
-        )
+        print("⚠️  EIA_API_KEY not found. Using demo data for development.")
+        print("   To use real EIA data, set EIA_API_KEY environment variable.")
+        print("   Get your free key at: https://www.eia.gov/opendata/register.php")
+        return None  # Return None to trigger demo mode
     
     return api_key
 
@@ -179,6 +179,14 @@ def main():
     try:
         # Get API key
         api_key = get_api_key()
+        
+        # If no API key, use demo data
+        if api_key is None:
+            print("🔄 Generating demo fuel mix data...")
+            from demo_fuelmix_data import main as generate_demo
+            generate_demo()
+            print("✅ Demo fuel mix data generated successfully")
+            return True
         
         # Calculate date range (last 7 days)
         end_date = datetime.utcnow()
