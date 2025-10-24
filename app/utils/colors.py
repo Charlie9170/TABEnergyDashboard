@@ -5,19 +5,23 @@ Defines the standard color scheme for fuel types used in all charts and maps,
 ensuring visual consistency throughout the application.
 """
 
-# Professional TAB color palette (hex values) - complementing txbiznews.com design
+# TAB-Compliant Color Palette - Professional colors matching TAB brand identity
+# Core TAB colors: Navy #1B365D, Red #C8102E, with complementary professional tones
 FUEL_COLORS_HEX = {
-    "GAS": "#FF6B35",      # Professional Orange - Natural Gas
-    "COAL": "#495057",     # Professional Gray - Coal  
-    "NUCLEAR": "#6F42C1",  # Professional Purple - Nuclear
-    "SOLAR": "#FFC107",    # Professional Gold - Solar Energy
-    "WIND": "#20C997",     # Professional Teal - Wind Energy
-    "HYDRO": "#17A2B8",    # Professional Cyan - Hydroelectric
-    "STORAGE": "#007BFF",  # Professional Blue - Battery Storage
-    "OIL": "#C8102E",      # TAB Red - Petroleum/Oil
-    "BIOMASS": "#28A745",  # Professional Green - Biomass
-    "SUN": "#FFC107",      # Alias for Solar
-    "OTHER": "#6C757D",    # Professional Gray - Other/Unknown
+    "GAS": "#C8102E",      # TAB Red - Natural Gas (dominant fuel in Texas)
+    "NATURAL GAS": "#C8102E",  # Alias
+    "COAL": "#4A5568",     # Slate Gray - Coal
+    "NUCLEAR": "#7C3AED",  # Deep Purple - Nuclear
+    "SOLAR": "#F59E0B",    # Amber Gold - Solar Energy
+    "SUN": "#F59E0B",      # Alias for Solar
+    "WIND": "#1B365D",     # TAB Navy - Wind Energy (major Texas resource)
+    "HYDRO": "#0EA5E9",    # Sky Blue - Hydroelectric
+    "STORAGE": "#3B82F6",  # Professional Blue - Battery Storage
+    "BATTERY STORAGE": "#3B82F6",  # Alias
+    "OIL": "#DC2626",      # Crimson Red - Petroleum/Oil
+    "BIOMASS": "#059669",  # Forest Green - Biomass
+    "OTHER": "#64748B",    # Cool Gray - Other/Unknown
+    "UNKNOWN ENERGY STORAGE": "#9CA3AF",  # Light Gray
 }
 
 
@@ -39,12 +43,14 @@ def get_fuel_color_hex(fuel_type: str) -> str:
         return FUEL_COLORS_HEX["SOLAR"]
     elif "WIND" in fuel_normalized:
         return FUEL_COLORS_HEX["WIND"] 
-    elif "GAS" in fuel_normalized or fuel_normalized == "NATURAL GAS":
+    elif "GAS" in fuel_normalized or "NATURAL GAS" in fuel_normalized:
         return FUEL_COLORS_HEX["GAS"]
     elif "BATTERY" in fuel_normalized or "STORAGE" in fuel_normalized:
         return FUEL_COLORS_HEX["STORAGE"]
     elif "DIESEL" in fuel_normalized or "OIL" in fuel_normalized:
         return FUEL_COLORS_HEX["OIL"]
+    elif "UNKNOWN" in fuel_normalized and "STORAGE" in fuel_normalized:
+        return FUEL_COLORS_HEX.get("UNKNOWN ENERGY STORAGE", FUEL_COLORS_HEX["OTHER"])
     
     # Direct lookup for exact matches
     return FUEL_COLORS_HEX.get(fuel_normalized, FUEL_COLORS_HEX["OTHER"])
