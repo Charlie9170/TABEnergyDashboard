@@ -48,8 +48,15 @@ def render():
     # Professional metrics using native Streamlit
     col1, col2, col3 = st.columns(3)
     
+    # Determine capacity column (schema uses 'proposed_mw')
+    capacity_col = 'proposed_mw' if 'proposed_mw' in df.columns else ('capacity_mw' if 'capacity_mw' in df.columns else None)
+    if capacity_col is None:
+        st.error("Queue data missing capacity column ('proposed_mw' or 'capacity_mw').")
+        st.info(f"Available columns: {list(df.columns)}")
+        return
+
     with col1:
-        total_capacity = df['capacity_mw'].sum()
+        total_capacity = df[capacity_col].sum()
         st.metric(
             label="Total Planned Capacity",
             value=f"{total_capacity:,.0f} MW",
@@ -77,7 +84,7 @@ def render():
     
     # Add colors for visualization
     df['color'] = [get_fuel_color_rgba(f, alpha=180) for f in df['fuel']]
-    df['radius'] = np.clip(df['capacity_mw'] * 15, 80, 1500)
+    df['radius'] = np.clip(df[capacity_col] * 15, 80, 1500)
     
     # Create map
     view_state = pdk.ViewState(
@@ -108,7 +115,7 @@ def render():
     # Simple fuel breakdown
     st.subheader("⚡ Capacity by Fuel Type")
     
-    fuel_capacity = df.groupby('fuel')['capacity_mw'].sum().sort_values(ascending=False)
+    fuel_capacity = df.groupby('fuel')[capacity_col].sum().sort_values(ascending=False)
     
     # Simple bar chart
     fig = go.Figure(data=[
@@ -133,8 +140,11 @@ def render():
     st.subheader("📋 Project Summary")
     
     # Show key columns only
-    display_df = df[['project_name', 'fuel', 'capacity_mw', 'status']].copy()
-    display_df.columns = ['Project Name', 'Fuel Type', 'Capacity (MW)', 'Status']
+    cols = ['project_name', 'fuel', capacity_col, 'status']
+    display_df = df[cols].copy()
+    # Rename for presentation
+    pretty_cols = ['Project Name', 'Fuel Type', 'Capacity (MW)', 'Status']
+    display_df.columns = pretty_cols
     
     st.dataframe(
         display_df, 

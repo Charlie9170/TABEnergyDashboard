@@ -75,6 +75,9 @@ COLUMN_ALIASES = {
         "latitude": "lat",
         "longitude": "lon",
         "capacity": "proposed_mw",
+        "capacity_mw": "proposed_mw",
+        "nameplate_mw": "proposed_mw",
+        "mw": "proposed_mw",
         "type": "fuel",
     },
 }
