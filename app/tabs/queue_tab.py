@@ -118,8 +118,11 @@ def render():
         view_state = pdk.ViewState(
             latitude=31.0,   # Texas center
             longitude=-99.0,
-            zoom=6.2,
+            zoom=6.7,
+            min_zoom=6,
+            max_zoom=8,
             pitch=0,
+            bounds=[[-107, 25], [-93, 37]],  # SW and NE corners of Texas
         )
 
         layer = pdk.Layer(
