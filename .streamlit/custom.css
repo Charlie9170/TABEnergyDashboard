@@ -260,7 +260,6 @@ p {
 [data-testid="stPlotlyChart"],
 [data-testid="stDeckGlJsonChart"] {
     border-radius: var(--radius-lg);
-    overflow: hidden;
     box-shadow: var(--shadow-sm);
 }
 

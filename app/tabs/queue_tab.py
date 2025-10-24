@@ -156,7 +156,6 @@ def render():
         title="Planned Capacity by Fuel Type",
         xaxis_title="Fuel Type",
         yaxis_title="Capacity (MW)",
-        template="plotly_white",
         height=400
     )
     

@@ -123,17 +123,13 @@ def render():
                 hovertemplate='%{y:,.0f} MWh<extra></extra>',
             ))
         
-        # Update layout with light/white theme to match the site
+        # Update layout - using global tab_theme from main.py
         fig.update_layout(
             title="ERCOT Generation by Fuel Type (Last 7 Days)",
             xaxis_title="Time (Central Time)",
             yaxis_title="Generation (MWh)",
             hovermode='x unified',
             height=500,
-            template="plotly_white",
-            paper_bgcolor='#FFFFFF',
-            plot_bgcolor='#FFFFFF',
-            font=dict(color='#0B1939', size=12),
             legend=dict(
                 orientation="h",
                 yanchor="top",
