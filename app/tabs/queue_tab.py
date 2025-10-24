@@ -105,7 +105,8 @@ def render():
     df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
     df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
     df = df.dropna(subset=['lat', 'lon'])
-    df['radius'] = np.clip(df[capacity_col] * 15, 80, 1500)
+    # Reduce dot radius for better visibility (range: 30-400)
+    df['radius'] = np.clip(df[capacity_col] * 3, 30, 400)
 
     if df.empty:
         st.info("No valid project coordinates available to render on the map.")
@@ -113,11 +114,11 @@ def render():
         # Still show the rest of the content below
     
     if not df.empty:
-        # Create map (avoid explicit Mapbox style to not require a token)
+        # Center map on Texas, tighter zoom
         view_state = pdk.ViewState(
-            latitude=float(df['lat'].mean()),
-            longitude=float(df['lon'].mean()),
-            zoom=5.5,
+            latitude=31.0,   # Texas center
+            longitude=-99.0,
+            zoom=6.2,
             pitch=0,
         )
 
