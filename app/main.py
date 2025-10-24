@@ -16,6 +16,7 @@ Updated automatically via robust ETL processes.
 
 import streamlit as st
 from pathlib import Path
+from typing import Any, Dict
 
 # Ensure all charts default to white backgrounds
 try:
@@ -27,10 +28,10 @@ except Exception:
 try:
     import altair as alt
 
-    def _white_bg():
+    def _white_bg() -> Dict[str, Any]:
         return {"config": {"background": "white"}}
 
-    alt.themes.register("white_bg", _white_bg)
+    alt.themes.register("white_bg", _white_bg)  # type: ignore[arg-type]
     alt.themes.enable("white_bg")
 except Exception:
     pass
