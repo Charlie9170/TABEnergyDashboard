@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.colors import FUEL_COLORS_HEX, is_renewable
+from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
 from utils.data_sources import render_data_source_footer
 
 
@@ -87,7 +87,7 @@ def render():
         
         st.markdown("")  # Spacing
         
-        # Create stacked area chart with Plotly
+    # Create stacked area chart with Plotly
         fig = go.Figure()
         
         # Pivot data for plotting
@@ -103,34 +103,40 @@ def render():
         
         # Add traces for each fuel type
         for fuel in col_order:
+            color_hex = get_fuel_color_hex(str(fuel))
             fig.add_trace(go.Scatter(
                 x=pivot_df.index,
                 y=pivot_df[fuel],
                 name=fuel.capitalize(),
                 mode='lines',
                 stackgroup='one',
-                fillcolor=FUEL_COLORS_HEX.get(fuel.upper(), '#64748b'),
-                line=dict(width=0.5, color=FUEL_COLORS_HEX.get(fuel.upper(), '#64748b')),
+                fillcolor=color_hex,
+                line=dict(width=0.8, color=color_hex),
                 hovertemplate='%{y:,.0f} MWh<extra></extra>',
             ))
         
-        # Update layout with dark theme
+        # Update layout with light/white theme to match the site
         fig.update_layout(
             title="ERCOT Generation by Fuel Type (Last 7 Days)",
             xaxis_title="Time (Central Time)",
             yaxis_title="Generation (MWh)",
             hovermode='x unified',
             height=500,
-            template="plotly_dark",
-            paper_bgcolor='#0f172a',
-            plot_bgcolor='#111827',
-            font=dict(color='#e5e7eb'),
+            template="plotly_white",
+            paper_bgcolor='#FFFFFF',
+            plot_bgcolor='#FFFFFF',
+            font=dict(color='#0B1939', size=12),
             legend=dict(
                 orientation="h",
-                yanchor="bottom",
-                y=-0.2,
+                yanchor="top",
+                y=-0.15,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                bgcolor="#FFFFFF",
+                bordercolor="#E5E7EB",
+                borderwidth=1,
+                font=dict(size=12),
+                traceorder="normal"
             )
         )
         

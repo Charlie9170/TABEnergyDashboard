@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
 from utils.data_sources import render_data_source_footer
-from utils.colors import get_fuel_color_rgba, FUEL_COLORS_HEX
+from utils.colors import get_fuel_color_rgba, FUEL_COLORS_HEX, get_fuel_color_hex
 
 
 def render():
@@ -55,8 +55,11 @@ def render():
         st.info(f"Available columns: {list(df.columns)}")
         return
 
+    # Ensure numeric capacity for downstream visuals
+    df[capacity_col] = pd.to_numeric(df[capacity_col], errors='coerce').fillna(0)
+
     with col1:
-        total_capacity = df[capacity_col].sum()
+        total_capacity = float(df[capacity_col].sum())
         st.metric(
             label="Total Planned Capacity",
             value=f"{total_capacity:,.0f} MW",
@@ -72,6 +75,10 @@ def render():
         )
     
     with col3:
+        if 'fuel' not in df.columns:
+            st.error("Queue data missing 'fuel' column.")
+            st.info(f"Available columns: {list(df.columns)}")
+            return
         fuel_types = df['fuel'].nunique()
         st.metric(
             label="Fuel Types",
@@ -82,35 +89,43 @@ def render():
     # Simple map section
     st.subheader("🗺️ Project Locations")
     
-    # Add colors for visualization
+    # Add colors and clean coordinates for visualization
     df['color'] = [get_fuel_color_rgba(f, alpha=180) for f in df['fuel']]
+    df['lat'] = pd.to_numeric(df.get('lat'), errors='coerce')
+    df['lon'] = pd.to_numeric(df.get('lon'), errors='coerce')
+    df = df.dropna(subset=['lat', 'lon'])
     df['radius'] = np.clip(df[capacity_col] * 15, 80, 1500)
+
+    if df.empty:
+        st.info("No valid project coordinates available to render on the map.")
+        st.caption("Tip: Ensure 'lat' and 'lon' columns are present and numeric in data/queue.parquet.")
+        # Still show the rest of the content below
     
-    # Create map
-    view_state = pdk.ViewState(
-        latitude=df['lat'].mean(),
-        longitude=df['lon'].mean(),
-        zoom=5.5,
-        pitch=0,
-    )
-    
-    layer = pdk.Layer(
-        'ScatterplotLayer',
-        data=df,
-        get_position='[lon, lat]',
-        get_color='color',
-        get_radius='radius',
-        pickable=True,
-        opacity=0.7
-    )
-    
-    deck = pdk.Deck(
-        layers=[layer],
-        initial_view_state=view_state,
-        map_style='mapbox://styles/mapbox/light-v10'
-    )
-    
-    st.pydeck_chart(deck, use_container_width=True)
+    if not df.empty:
+        # Create map (avoid explicit Mapbox style to not require a token)
+        view_state = pdk.ViewState(
+            latitude=float(df['lat'].mean()),
+            longitude=float(df['lon'].mean()),
+            zoom=5.5,
+            pitch=0,
+        )
+
+        layer = pdk.Layer(
+            'ScatterplotLayer',
+            data=df,
+            get_position=['lon', 'lat'],
+            get_color='color',
+            get_radius='radius',
+            pickable=True,
+            opacity=0.7
+        )
+
+        deck = pdk.Deck(
+            layers=[layer],
+            initial_view_state=view_state,
+        )
+
+        st.pydeck_chart(deck, use_container_width=True)
     
     # Simple fuel breakdown
     st.subheader("⚡ Capacity by Fuel Type")
@@ -122,7 +137,7 @@ def render():
         go.Bar(
             x=fuel_capacity.index,
             y=fuel_capacity.values,
-            marker_color=[FUEL_COLORS_HEX.get(fuel.replace(' ', '').upper(), '#64748b') for fuel in fuel_capacity.index]
+            marker_color=[get_fuel_color_hex(str(f)) for f in fuel_capacity.index]
         )
     ])
     
