@@ -121,10 +121,12 @@ def render():
         
         # Define view state for Texas
         view_state = pdk.ViewState(
-            latitude=center_lat,
-            longitude=center_lon,
-            zoom=6,
+            latitude=31.0,
+            longitude=-99.0,
+            zoom=6.2,
             pitch=0,
+            min_zoom=6,
+            max_zoom=8,
         )
         
         # Create pydeck layer  

@@ -85,15 +85,14 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
     )
     
     # Texas-focused view (similar to ERCOT maps)
-    view_state = pdk.ViewState(
-        latitude=31.2,           # Slightly south of center for better Texas focus
-        longitude=-99.5,         # Centered on Texas
-        zoom=6.0,               # Show all of Texas clearly
-        pitch=0,
-        bearing=0,
-        min_zoom=5.0,
-        max_zoom=12.0
-    )
+        view_state = pdk.ViewState(
+            latitude=31.0,           # Texas center
+            longitude=-99.0,
+            zoom=6.2,                # Show all of Texas
+            pitch=0,
+            min_zoom=6,
+            max_zoom=8,
+        )
     
     return pdk.Deck(
         layers=[layer],
