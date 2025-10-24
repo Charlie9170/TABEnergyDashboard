@@ -15,6 +15,25 @@ Updated automatically via robust ETL processes.
 """
 
 import streamlit as st
+from pathlib import Path
+
+# Ensure all charts default to white backgrounds
+try:
+    import plotly.io as pio
+    pio.templates.default = "plotly_white"
+except Exception:
+    pass
+
+try:
+    import altair as alt
+
+    def _white_bg():
+        return {"config": {"background": "white"}}
+
+    alt.themes.register("white_bg", _white_bg)
+    alt.themes.enable("white_bg")
+except Exception:
+    pass
 
 # Import tab modules
 from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab
@@ -272,24 +291,20 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown("""
+st.markdown(
+    f"""
 <div class="main-header">
     <div class="header-content">
         <h1 class="main-title">Texas Energy Dashboard</h1>
         <p class="main-subtitle">Real-time Energy Market Intelligence</p>
     </div>
     <div class="header-logo">
-        <svg width="100" height="80" viewBox="0 0 100 80">
-            <polygon points="20,15 30,5 40,15 50,5 60,15 60,25 50,35 40,25 30,35 20,25" fill="#1B365D"/>
-            <rect x="65" y="10" width="30" height="8" fill="#C8102E"/>
-            <rect x="65" y="22" width="30" height="8" fill="#C8102E"/>
-            <rect x="65" y="34" width="30" height="8" fill="#C8102E"/>
-            <rect x="65" y="46" width="30" height="8" fill="#C8102E"/>
-            <text x="50" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1B365D">TAB</text>
-        </svg>
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXx_Eu106CitCIUeTPpgvqP7RmB_pUfI5fcg&s" alt="TAB Logo" style="height:64px; object-fit:contain;" />
     </div>
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 # Tab navigation using Streamlit tabs
 tab1, tab2, tab3, tab4 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue"])
