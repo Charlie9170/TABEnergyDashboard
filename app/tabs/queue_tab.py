@@ -45,7 +45,7 @@ def render():
     # Clean and prepare data
     df = queue_df.copy()
     
-    # Professional metrics using native Streamlit
+    # Unified metric cards matching Fuel Mix and Generation tabs
     col1, col2, col3 = st.columns(3)
     
     # Determine capacity column (schema uses 'proposed_mw')
@@ -60,19 +60,23 @@ def render():
 
     with col1:
         total_capacity = float(df[capacity_col].sum())
-        st.metric(
-            label="Total Planned Capacity",
-            value=f"{total_capacity:,.0f} MW",
-            help="Combined capacity of all projects in the interconnection queue"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Total Planned Capacity</div>
+            <div class="metric-card-value">{total_capacity:,.0f} MW</div>
+            <div class="metric-card-subtitle">Pipeline Projects</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
         project_count = len(df)
-        st.metric(
-            label="Projects in Queue", 
-            value=f"{project_count:,}",
-            help="Number of generation projects awaiting interconnection"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Projects in Queue</div>
+            <div class="metric-card-value">{project_count:,}</div>
+            <div class="metric-card-subtitle">Awaiting Interconnection</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
         if 'fuel' not in df.columns:
@@ -80,11 +84,13 @@ def render():
             st.info(f"Available columns: {list(df.columns)}")
             return
         fuel_types = df['fuel'].nunique()
-        st.metric(
-            label="Fuel Types",
-            value=fuel_types,
-            help="Diversity of generation technologies in the queue"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Fuel Types</div>
+            <div class="metric-card-value">{fuel_types}</div>
+            <div class="metric-card-subtitle">Generation Technologies</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     # Simple map section
     st.subheader("🗺️ Project Locations")

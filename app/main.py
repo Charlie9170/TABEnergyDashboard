@@ -18,17 +18,53 @@ import streamlit as st
 from pathlib import Path
 from typing import Any, Dict
 
-# Ensure all charts default to white backgrounds
+# Configure Plotly with TAB Design System
 try:
     import plotly.io as pio
-    pio.templates.default = "plotly_white"
+    import plotly.graph_objects as go
+    
+    # Create custom TAB-branded Plotly template
+    tab_template = go.layout.Template()
+    tab_template.layout = dict(
+        font=dict(family="Inter, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+        colorway=["#1B365D", "#C8102E", "#F59E0B", "#3B82F6", "#059669", "#7C3AED", "#0EA5E9"],
+        hovermode="closest",
+        hoverlabel=dict(bgcolor="white", font_size=12, font_family="Inter"),
+        title=dict(font=dict(size=18, color="#1B365D", family="Inter"), x=0.05, xanchor="left"),
+        xaxis=dict(
+            gridcolor="#E2E8F0",
+            gridwidth=1,
+            linecolor="#E2E8F0",
+            showgrid=True,
+            zeroline=False,
+            tickfont=dict(size=11, color="#64748B")
+        ),
+        yaxis=dict(
+            gridcolor="#E2E8F0",
+            gridwidth=1,
+            linecolor="#E2E8F0",
+            showgrid=True,
+            zeroline=False,
+            tickfont=dict(size=11, color="#64748B")
+        ),
+        legend=dict(
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="#E2E8F0",
+            borderwidth=1,
+            font=dict(size=11, color="#64748B")
+        ),
+        margin=dict(l=60, r=40, t=80, b=60)
+    )
+    
+    pio.templates["tab_theme"] = tab_template
+    pio.templates.default = "tab_theme"
 except Exception:
     pass
 
 try:
     import altair as alt
-    
-    # Altair 5.5+ theme registration API
     # Altair theming is optional; skip to avoid version-specific typing issues.
     pass
 except Exception:
@@ -46,16 +82,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Professional TAB Styling - Modeled after txbiznews.com
+# Load Professional TAB Design System
+def load_custom_css():
+    """Load custom CSS from .streamlit/custom.css for unified design system"""
+    css_path = Path(__file__).parent.parent / ".streamlit" / "custom.css"
+    if css_path.exists():
+        with open(css_path, 'r') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+
+load_custom_css()
+
+# Additional TAB Brand Styling - Enhancing base design system
 st.markdown("""
 <style>
     /* TAB Official Colors: Navy Blue #1B365D, Red #C8102E, White #FFFFFF */
-    
-    /* Global styling matching txbiznews.com */
-    .stApp {
-        background-color: #FFFFFF;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-    }
     
     .main .block-container {
         background-color: #FFFFFF;

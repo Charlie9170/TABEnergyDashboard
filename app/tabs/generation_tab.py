@@ -154,22 +154,26 @@ def render():
         fuel_breakdown = clean_df.groupby('fuel')['capacity_mw'].sum().sort_values(ascending=False)
         largest_plant = clean_df.loc[clean_df['capacity_mw'].idxmax()]
         
-        # Display KPIs
+        # Display KPIs - Unified metric card style matching Fuel Mix tab
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric(
-                "Total Plants",
-                f"{total_plants:,}",
-                help="Number of power generation facilities in Texas"
-            )
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Total Plants</div>
+                <div class="metric-card-value">{total_plants:,}</div>
+                <div class="metric-card-subtitle">Texas Generation Facilities</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col2:
-            st.metric(
-                "Total Capacity", 
-                f"{total_capacity:,.0f} MW",
-                help="Combined nameplate capacity of all Texas generators"
-            )
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Total Capacity</div>
+                <div class="metric-card-value">{total_capacity:,.0f} MW</div>
+                <div class="metric-card-subtitle">Combined Nameplate Capacity</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col3:
             # Find the dominant fuel
@@ -180,22 +184,24 @@ def render():
                 dominant_fuel = fuel_breakdown.index[0]
                 dominant_pct = (fuel_breakdown.iloc[0] / total_capacity) * 100
                 
-            st.metric(
-                "Dominant Fuel",
-                dominant_fuel,
-                f"{dominant_pct:.1f}% of capacity",
-                help="Primary fuel type by total installed capacity"
-            )
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Dominant Fuel</div>
+                <div class="metric-card-value">{dominant_fuel}</div>
+                <div class="metric-card-subtitle">{dominant_pct:.1f}% of Capacity</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col4:
             plant_name = largest_plant['plant_name']
-            display_name = plant_name[:20] + ("..." if len(plant_name) > 20 else "")
-            st.metric(
-                "Largest Plant",
-                display_name,
-                f"{largest_plant['capacity_mw']:,.0f} MW",
-                help="Highest capacity power generation facility"
-            )
+            display_name = plant_name[:15] + "..." if len(plant_name) > 15 else plant_name
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Largest Plant</div>
+                <div class="metric-card-value" style="font-size: 1.5rem;">{display_name}</div>
+                <div class="metric-card-subtitle">{largest_plant['capacity_mw']:,.0f} MW</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         # Interactive map
         st.subheader("Interactive Facility Map")

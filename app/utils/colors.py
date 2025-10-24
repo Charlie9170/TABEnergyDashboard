@@ -5,23 +5,47 @@ Defines the standard color scheme for fuel types used in all charts and maps,
 ensuring visual consistency throughout the application.
 """
 
-# TAB-Compliant Color Palette - Professional colors matching TAB brand identity
-# Core TAB colors: Navy #1B365D, Red #C8102E, with complementary professional tones
+# ================================
+# TAB DESIGN SYSTEM - COLOR TOKENS
+# ================================
+# Professional color palette matching TAB brand identity and design system
+# Ensures WCAG AA accessibility (4.5:1 contrast ratio minimum)
+
+# Core TAB Brand Colors
+TAB_COLORS = {
+    "primary": "#1B365D",      # TAB Navy - Brand primary
+    "accent": "#C8102E",       # TAB Red - Brand accent
+    "success": "#059669",      # Emerald Green - Success states
+    "warning": "#F59E0B",      # Amber - Warning states
+    "info": "#3B82F6",         # Blue - Info states
+}
+
+# Neutral Palette
+NEUTRAL_COLORS = {
+    "text": "#0F172A",         # Slate 900 - Primary text
+    "text_muted": "#64748B",   # Slate 500 - Secondary text
+    "text_light": "#94A3B8",   # Slate 400 - Tertiary text
+    "border": "#E2E8F0",       # Slate 200 - Borders
+    "surface": "#F8FAFC",      # Slate 50 - Cards/surfaces
+    "background": "#FFFFFF",   # White - Page background
+}
+
+# Fuel Type Color Palette - TAB Brand Aligned
 FUEL_COLORS_HEX = {
-    "GAS": "#C8102E",      # TAB Red - Natural Gas (dominant fuel in Texas)
+    "GAS": "#C8102E",          # TAB Red - Natural Gas (dominant fuel in Texas)
     "NATURAL GAS": "#C8102E",  # Alias
-    "COAL": "#4A5568",     # Slate Gray - Coal
-    "NUCLEAR": "#7C3AED",  # Deep Purple - Nuclear
-    "SOLAR": "#F59E0B",    # Amber Gold - Solar Energy
-    "SUN": "#F59E0B",      # Alias for Solar
-    "WIND": "#1B365D",     # TAB Navy - Wind Energy (major Texas resource)
-    "HYDRO": "#0EA5E9",    # Sky Blue - Hydroelectric
-    "STORAGE": "#3B82F6",  # Professional Blue - Battery Storage
+    "COAL": "#4A5568",         # Slate 600 - Coal
+    "NUCLEAR": "#7C3AED",      # Violet 600 - Nuclear
+    "SOLAR": "#F59E0B",        # Amber 500 - Solar Energy
+    "SUN": "#F59E0B",          # Alias for Solar
+    "WIND": "#1B365D",         # TAB Navy - Wind Energy (major Texas resource)
+    "HYDRO": "#0EA5E9",        # Sky 500 - Hydroelectric
+    "STORAGE": "#3B82F6",      # Blue 500 - Battery Storage
     "BATTERY STORAGE": "#3B82F6",  # Alias
-    "OIL": "#DC2626",      # Crimson Red - Petroleum/Oil
-    "BIOMASS": "#059669",  # Forest Green - Biomass
-    "OTHER": "#64748B",    # Cool Gray - Other/Unknown
-    "UNKNOWN ENERGY STORAGE": "#9CA3AF",  # Light Gray
+    "OIL": "#DC2626",          # Red 600 - Petroleum/Oil
+    "BIOMASS": "#059669",      # Emerald 600 - Biomass
+    "OTHER": "#64748B",        # Slate 500 - Other/Unknown
+    "UNKNOWN ENERGY STORAGE": "#9CA3AF",  # Gray 400
 }
 
 

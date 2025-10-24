@@ -80,33 +80,36 @@ def render():
         price_range = max_price - min_price if max_price > min_price else 1
         df['radius'] = 100 + ((df['price_cperkwh'] - min_price) / price_range) * 900
         
-        # Summary stats
+        # Unified metric cards matching other tabs
         col1, col2, col3 = st.columns(3)
         
         with col1:
             avg_price = df['price_cperkwh'].mean()
             st.markdown(f"""
-            <div class="kpi-card">
-                <p class="kpi-value">{avg_price:.2f}¢</p>
-                <p class="kpi-label">Average Price/kWh</p>
+            <div class="metric-card">
+                <div class="metric-card-title">Average Price/kWh</div>
+                <div class="metric-card-value">{avg_price:.2f}¢</div>
+                <div class="metric-card-subtitle">ERCOT Grid Average</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             min_price_val = df['price_cperkwh'].min()
             st.markdown(f"""
-            <div class="kpi-card">
-                <p class="kpi-value">{min_price_val:.2f}¢</p>
-                <p class="kpi-label">Minimum Price/kWh</p>
+            <div class="metric-card">
+                <div class="metric-card-title">Minimum Price/kWh</div>
+                <div class="metric-card-value">{min_price_val:.2f}¢</div>
+                <div class="metric-card-subtitle">Lowest Node Price</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col3:
             max_price_val = df['price_cperkwh'].max()
             st.markdown(f"""
-            <div class="kpi-card">
-                <p class="kpi-value">{max_price_val:.2f}¢</p>
-                <p class="kpi-label">Maximum Price/kWh</p>
+            <div class="metric-card">
+                <div class="metric-card-title">Maximum Price/kWh</div>
+                <div class="metric-card-value">{max_price_val:.2f}¢</div>
+                <div class="metric-card-subtitle">Highest Node Price</div>
             </div>
             """, unsafe_allow_html=True)
         
