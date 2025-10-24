@@ -24,29 +24,32 @@ from utils.data_sources import render_data_source_footer
 def render():
     """Render the Fuel Mix tab."""
     
-    # Live data indicator
-    st.markdown("""
-    <div style="
-        background-color: #dcfce7; 
-        border: 2px solid #16a34a; 
-        padding: 15px; 
-        border-radius: 8px; 
-        margin: 20px 0;
-        text-align: center;
-        color: #15803d;
-    ">
-        <h4 style="margin-top: 0; color: #16a34a;">🟢 LIVE DATA - Real EIA API Integration</h4>
-        <p style="font-size: 0.9em; margin-bottom: 0; opacity: 0.8;">
-            Automatically updated every 6 hours with real ERCOT generation data
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Header
-    st.header("ERCOT Fuel Mix")
+    # Local styles for a clean TAB-branded hero and KPI pills
     st.markdown(
-        "Hourly electricity generation by fuel type across the ERCOT grid. "
-        "Data shows the energy sources powering Texas in real-time."
+        """
+        <style>
+            .fuelmix-hero .accent-bar { height: 6px; width: 140px; background: linear-gradient(90deg,#1B365D,#C8102E); border-radius: 4px; margin: 6px 0 18px 0; }
+            .fuelmix-hero .subtitle { color:#0B1939; opacity:0.85; font-size:0.98rem; margin-top:2px; }
+            .status-pill { display:inline-block; background:#F5F7FA; color:#0B1939; border-left:4px solid #1B365D; padding:6px 10px; border-radius:6px; font-size:0.85rem; font-weight:600; }
+            .kpi-pill { background:#FFFFFF; border:1px solid #E5E7EB; border-left:4px solid #1B365D; border-radius:10px; padding:12px 16px; }
+            .kpi-value { font-size:1.6rem; font-weight:700; color:#1B365D; margin:0; }
+            .kpi-label { font-size:0.9rem; color:#6B7280; margin:4px 0 0 0; font-weight:500; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Hero section
+    st.markdown(
+        """
+        <div class="fuelmix-hero">
+            <h2 style="margin-bottom:4px; color:#1B365D; font-weight:800;">ERCOT Fuel Mix</h2>
+            <div class="accent-bar"></div>
+            <div class="subtitle">Hourly electricity generation by fuel type across the ERCOT grid.</div>
+            <div class="status-pill" style="margin-top:10px;">🟢 Live data · Auto-updated via EIA every 6 hours</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
     
     try:
@@ -63,13 +66,15 @@ def render():
             # Average hourly total generation
             total_by_period = df.groupby('period')['value_mwh'].sum()
             avg_hourly = total_by_period.mean()
-            
-            st.markdown(f"""
-            <div class="kpi-card">
-                <p class="kpi-value">{avg_hourly:,.0f} MWh</p>
-                <p class="kpi-label">Average Hourly Generation</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="kpi-pill">
+                    <p class="kpi-value">{avg_hourly:,.0f} MWh</p>
+                    <p class="kpi-label">Average Hourly Generation</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         
         with col2:
             # Renewable share
@@ -78,12 +83,15 @@ def render():
             total = df['value_mwh'].sum()
             renewable_share = (renewable_total / total * 100) if total > 0 else 0
             
-            st.markdown(f"""
-            <div class="kpi-card">
-                <p class="kpi-value">{renewable_share:.1f}%</p>
-                <p class="kpi-label">Renewable Energy Share</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(
+                f"""
+                <div class="kpi-pill">
+                    <p class="kpi-value">{renewable_share:.1f}%</p>
+                    <p class="kpi-label">Renewable Energy Share</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
         
         st.markdown("")  # Spacing
         
@@ -129,7 +137,7 @@ def render():
             legend=dict(
                 orientation="h",
                 yanchor="top",
-                y=-0.15,
+                y=-0.25,
                 xanchor="center",
                 x=0.5,
                 bgcolor="#FFFFFF",
@@ -137,7 +145,10 @@ def render():
                 borderwidth=1,
                 font=dict(size=12),
                 traceorder="normal"
-            )
+            ),
+            margin=dict(t=60, r=20, b=120, l=60),
+            xaxis=dict(title="Time (Central Time)", title_standoff=30),
+            yaxis=dict(title="Generation (MWh)", title_standoff=10),
         )
         
         st.plotly_chart(fig, use_container_width=True)
