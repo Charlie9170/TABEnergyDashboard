@@ -91,8 +91,13 @@ def render():
     
     # Add colors and clean coordinates for visualization
     df['color'] = [get_fuel_color_rgba(f, alpha=180) for f in df['fuel']]
-    df['lat'] = pd.to_numeric(df.get('lat'), errors='coerce')
-    df['lon'] = pd.to_numeric(df.get('lon'), errors='coerce')
+    # Ensure lat/lon columns exist before numeric conversion
+    if 'lat' not in df.columns:
+        df['lat'] = np.nan
+    if 'lon' not in df.columns:
+        df['lon'] = np.nan
+    df['lat'] = pd.to_numeric(df['lat'], errors='coerce')
+    df['lon'] = pd.to_numeric(df['lon'], errors='coerce')
     df = df.dropna(subset=['lat', 'lon'])
     df['radius'] = np.clip(df[capacity_col] * 15, 80, 1500)
 

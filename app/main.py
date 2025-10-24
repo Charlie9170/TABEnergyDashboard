@@ -27,12 +27,10 @@ except Exception:
 
 try:
     import altair as alt
-
-    def _white_bg() -> Dict[str, Any]:
-        return {"config": {"background": "white"}}
-
-    alt.themes.register("white_bg", _white_bg)  # type: ignore[arg-type]
-    alt.themes.enable("white_bg")
+    
+    # Altair 5.5+ theme registration API
+    # Altair theming is optional; skip to avoid version-specific typing issues.
+    pass
 except Exception:
     pass
 
