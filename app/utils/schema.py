@@ -86,17 +86,17 @@ COLUMN_ALIASES = {
 def normalize_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     """
     Normalize column names using aliases for the given dataset.
-    
+
     Args:
         df: Input dataframe
         dataset: Dataset name (e.g., 'fuelmix', 'price_map')
-        
+
     Returns:
         DataFrame with normalized column names
     """
     if dataset not in COLUMN_ALIASES:
         return df
-    
+
     # Apply aliases to rename columns
     aliases = COLUMN_ALIASES[dataset]
     rename_map = {col: aliases.get(col, col) for col in df.columns}
@@ -106,20 +106,20 @@ def normalize_columns(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
 def coerce_types(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
     """
     Coerce dataframe columns to match schema types.
-    
+
     Args:
         df: Input dataframe
         dataset: Dataset name (e.g., 'fuelmix', 'price_map')
-        
+
     Returns:
         DataFrame with coerced types
     """
     if dataset not in SCHEMAS:
         return df
-    
+
     schema = SCHEMAS[dataset]
     df = df.copy()
-    
+
     for col, dtype in schema.items():
         if col in df.columns:
             try:
@@ -132,40 +132,40 @@ def coerce_types(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
                     df[col] = df[col].astype(str)
             except Exception as e:
                 print(f"Warning: Could not coerce column {col} to {dtype}: {e}")
-    
+
     return df
 
 
 def validate(df: pd.DataFrame, dataset: str) -> Tuple[List[str], List[str]]:
     """
     Validate that dataframe has required columns.
-    
+
     Args:
         df: Input dataframe
         dataset: Dataset name (e.g., 'fuelmix', 'price_map')
-        
+
     Returns:
         Tuple of (missing_columns, extra_columns)
     """
     if dataset not in SCHEMAS:
         return [], []
-    
+
     required_cols = set(SCHEMAS[dataset].keys())
     actual_cols = set(df.columns)
-    
+
     missing = list(required_cols - actual_cols)
     extra = list(actual_cols - required_cols)
-    
+
     return missing, extra
 
 
 def get_schema(dataset: str) -> Dict[str, str]:
     """
     Get the canonical schema for a dataset.
-    
+
     Args:
         dataset: Dataset name (e.g., 'fuelmix', 'price_map')
-        
+
     Returns:
         Dictionary mapping column names to data types
     """

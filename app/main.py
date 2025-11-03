@@ -6,7 +6,7 @@ providing real-time energy market intelligence for policymakers and member compa
 
 Features:
 - Real-time fuel mix from EIA
-- ERCOT interconnection queue analysis  
+- ERCOT interconnection queue analysis
 - Power generation facilities mapping
 - Energy market data visualization
 
@@ -16,13 +16,12 @@ Updated automatically via robust ETL processes.
 
 import streamlit as st
 from pathlib import Path
-from typing import Any, Dict
 
 # Configure Plotly with TAB Design System
 try:
     import plotly.io as pio
     import plotly.graph_objects as go
-    
+
     # Create custom TAB-branded Plotly template
     tab_template = go.layout.Template()
     tab_template.layout = dict(
@@ -57,18 +56,13 @@ try:
         ),
         margin=dict(l=60, r=40, t=80, b=60)
     )
-    
+
     pio.templates["tab_theme"] = tab_template
     pio.templates.default = "tab_theme"
 except Exception:
     pass
 
-try:
-    import altair as alt
-    # Altair theming is optional; skip to avoid version-specific typing issues.
-    pass
-except Exception:
-    pass
+# Altair theming is optional; skip to avoid version-specific typing issues.
 
 # Import tab modules
 from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab
@@ -82,6 +76,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+
 # Load Professional TAB Design System
 def load_custom_css():
     """Load custom CSS from .streamlit/custom.css for unified design system"""
@@ -90,20 +85,35 @@ def load_custom_css():
         with open(css_path, 'r') as f:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
+
 load_custom_css()
+
 
 # Additional TAB Brand Styling - Enhancing base design system
 st.markdown("""
 <style>
     /* TAB Official Colors: Navy Blue #1B365D, Red #C8102E, White #FFFFFF */
-    
+
+    /* Global compact layout - more zoomed out */
     .main .block-container {
         background-color: #FFFFFF;
         padding-top: 0rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
+        padding-bottom: 1rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+        max-width: 1400px;
     }
     
+    /* Reduce overall spacing */
+    .element-container {
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Compact sections */
+    section.main > div {
+        padding-top: 0.5rem;
+    }
+
     /* Navigation bar like txbiznews.com */
     .top-nav {
         background-color: #1B365D;
@@ -115,107 +125,149 @@ st.markdown("""
         font-weight: 500;
         letter-spacing: 0.5px;
     }
-    
-    /* Main header matching txbiznews style */
+
+    /* Main header matching txbiznews style - COMPACT VERSION */
     .main-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 2rem 0 1.5rem 0;
+        padding: 1rem 0 0.75rem 0;
         border-bottom: 3px solid #1B365D;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
-    
+
     .header-content {
         flex: 1;
     }
-    
+
     .main-title {
         color: #1B365D;
-        font-size: 2.25rem;
+        font-size: 1.75rem;
         font-weight: 700;
         margin: 0;
-        line-height: 1.2;
+        line-height: 1.1;
     }
-    
+
     .main-subtitle {
         color: #C8102E;
-        font-size: 1rem;
-        margin: 0.5rem 0 0 0;
+        font-size: 0.85rem;
+        margin: 0.25rem 0 0 0;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     .header-logo {
-        margin-left: 2rem;
+        margin-left: 1.5rem;
     }
     
-    /* Clean professional tabs */
+    .header-logo img {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        height: 48px !important;
+    }
+
+    .header-logo:focus, .header-logo img:focus {
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    /* Clean professional tabs - COMPACT */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
         background-color: transparent;
         padding: 0;
         border-bottom: none;
         justify-content: center;
+        margin-bottom: 0.5rem;
     }
-    
+
     .stTabs [data-baseweb="tab"] {
         background-color: #F8F9FA;
         color: #6C757D;
         border: 1px solid #DEE2E6;
         border-radius: 6px 6px 0 0;
-        padding: 12px 20px;
+        padding: 8px 16px;
         font-weight: 500;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         transition: all 0.2s ease;
         margin-right: 2px;
     }
     
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 0.75rem;
+    }
+
     .stTabs [aria-selected="true"] {
         background-color: #1B365D;
         color: #FFFFFF;
         border-color: #1B365D;
         font-weight: 600;
     }
-    
+
     .stTabs [data-baseweb="tab"]:hover {
         background-color: #E9ECEF;
         color: #1B365D;
     }
-    
-    /* Professional KPI cards */
+
+    /* Professional KPI cards - COMPACT */
     .metric-card {
         background: #FFFFFF;
         border: 2px solid #E9ECEF;
-        border-radius: 12px;
-        padding: 1.75rem;
+        border-radius: 8px;
+        padding: 1rem 1.25rem;
         text-align: center;
         transition: all 0.3s ease;
         box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
-    
+
     .metric-card:hover {
         border-color: #C8102E;
         box-shadow: 0 8px 25px rgba(0,0,0,0.1);
         transform: translateY(-2px);
     }
-    
-    .metric-value {
-        font-size: 3rem;
+
+    .metric-card-title {
+        font-size: 0.75rem;
+        color: #6C757D;
+        margin: 0 0 0.4rem 0;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .metric-card-value {
+        font-size: 2rem;
         font-weight: 700;
         color: #1B365D;
         margin: 0;
         line-height: 1;
     }
-    
-    .metric-label {
-        font-size: 1rem;
+
+    .metric-card-subtitle {
+        font-size: 0.75rem;
         color: #6C757D;
-        margin: 0.75rem 0 0 0;
+        margin: 0.3rem 0 0 0;
+        font-weight: 400;
+    }
+
+    .metric-value {
+        font-size: 2.25rem;
+        font-weight: 700;
+        color: #1B365D;
+        margin: 0;
+        line-height: 1;
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6C757D;
+        margin: 0.5rem 0 0 0;
         font-weight: 500;
     }
-    
+
     /* Professional status indicators */
     .status-indicator {
         display: inline-flex;
@@ -229,13 +281,13 @@ st.markdown("""
         color: #495057;
         margin-bottom: 1rem;
     }
-    
+
     .status-indicator.live {
         background: linear-gradient(135deg, #C8102E 0%, #DC3545 100%);
         color: #FFFFFF;
         border-color: #C8102E;
     }
-    
+
     .status-dot {
         width: 8px;
         height: 8px;
@@ -244,23 +296,23 @@ st.markdown("""
         margin-right: 8px;
         animation: pulse 2s infinite;
     }
-    
+
     @keyframes pulse {
         0% { opacity: 1; }
         50% { opacity: 0.5; }
         100% { opacity: 1; }
     }
-    
-    /* Clean section headers */
+
+    /* Clean section headers - COMPACT */
     .section-header {
         color: #1B365D;
-        font-size: 1.75rem;
+        font-size: 1.4rem;
         font-weight: 600;
-        margin: 2rem 0 1rem 0;
-        padding-bottom: 0.5rem;
+        margin: 1.25rem 0 0.75rem 0;
+        padding-bottom: 0.4rem;
         border-bottom: 2px solid #E9ECEF;
     }
-    
+
     /* Professional buttons */
     .stButton > button {
         background: linear-gradient(135deg, #1B365D 0%, #2C4F7C 100%);
@@ -274,48 +326,48 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    
+
     .stButton > button:hover {
         background: linear-gradient(135deg, #0F172A 0%, #1B365D 100%);
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(27, 54, 93, 0.3);
     }
-    
+
     /* Professional headings */
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
         color: #1B365D;
         font-weight: 600;
     }
-    
-    /* Footer matching txbiznews style */
+
+    /* Footer matching txbiznews style - COMPACT */
     .footer-section {
         background: #F8F9FA;
         border-top: 3px solid #1B365D;
-        padding: 2.5rem 2rem;
-        margin: 3rem -2rem -2rem -2rem;
+        padding: 1.5rem 2rem;
+        margin: 2rem -1rem -1rem -1rem;
         text-align: center;
     }
-    
+
     .footer-branding {
         color: #1B365D;
-        font-size: 1.1rem;
+        font-size: 0.95rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
     }
-    
+
     .footer-tagline {
         color: #C8102E;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         font-weight: 500;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
     }
-    
+
     .footer-details {
         color: #6C757D;
-        font-size: 0.85rem;
-        line-height: 1.6;
+        font-size: 0.75rem;
+        line-height: 1.5;
     }
-    
+
     /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
@@ -331,14 +383,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown(
-    f"""
+    """
 <div class="main-header">
     <div class="header-content">
         <h1 class="main-title">Texas Energy Dashboard</h1>
         <p class="main-subtitle">Real-time Energy Market Intelligence</p>
     </div>
     <div class="header-logo">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXx_Eu106CitCIUeTPpgvqP7RmB_pUfI5fcg&s" alt="TAB Logo" style="height:64px; object-fit:contain;" />
+        <img src="https://media.licdn.com/dms/image/v2/C560BAQEIzBAjOjBfNQ/company-logo_200_200/company-logo_200_200/0/1630593527551/texas_association_of_business_logo?e=2147483647&v=beta&t=i1boFi5ZKSQUjuRoNy78BBOYMKoMYK8YHEFP9Lzqs-g"
+             alt="TAB Logo" style="height:48px; object-fit:contain; border:none; outline:none; box-shadow:none;" />
     </div>
 </div>
 """,
