@@ -61,14 +61,23 @@ Data is automatically updated every 6 hours via GitHub Actions.
    pip install -r requirements.txt
    ```
 
-4. **Set up API key**
+4. **Set up API key** ⚠️ **CRITICAL SECURITY STEP**
    
-   Create `.streamlit/secrets.toml`:
+   **Never commit API keys to git!** The secrets file is already in `.gitignore`.
+   
+   Copy the template:
+   ```bash
+   cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+   ```
+   
+   Edit `.streamlit/secrets.toml` and add your actual key:
    ```toml
    EIA_API_KEY = "your_api_key_here"
    ```
    
-   Or set as environment variable:
+   Get your free API key: https://www.eia.gov/opendata/register.php
+   
+   Alternative - set as environment variable:
    ```bash
    export EIA_API_KEY="your_api_key_here"
    ```
@@ -240,6 +249,38 @@ Contributions welcome! Areas for improvement:
 - [ ] Add historical data trends
 - [ ] Add export functionality
 - [ ] Add custom date range selection
+
+## Security
+
+### 🔒 API Key Protection
+
+**NEVER commit API keys or secrets to version control!**
+
+This repository is configured to protect your credentials:
+
+✅ `.streamlit/secrets.toml` is in `.gitignore` (never committed)  
+✅ Template file provided: `.streamlit/secrets.toml.example`  
+✅ Setup instructions require copying template  
+
+**If you accidentally commit a secret:**
+1. Immediately regenerate the API key at the provider
+2. Remove from git history: `git rm --cached .streamlit/secrets.toml`
+3. Update `.gitignore` to prevent future commits
+4. Force push: `git push --force` (if already pushed to remote)
+
+### 🔑 API Keys Used
+
+- **EIA API Key**: Free from https://www.eia.gov/opendata/register.php
+- **YesEnergy API Key**: (Coming soon) For real-time price data
+- **ERCOT API**: Currently using public CDR reports (no key needed)
+
+### 📝 Best Practices
+
+1. Never hardcode credentials in Python files
+2. Use environment variables or Streamlit secrets
+3. Rotate API keys periodically
+4. Use separate keys for dev/staging/production
+5. Monitor API usage for suspicious activity
 
 ## License
 
