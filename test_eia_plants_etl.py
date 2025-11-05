@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from etl.eia_plants_etl_robust import (
+from etl.eia_plants_etl import (
     get_api_key,
     validate_input_schema,
     validate_output_schema,

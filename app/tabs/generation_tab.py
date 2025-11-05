@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
+import math
 from pathlib import Path
 
 from utils.data_sources import render_data_source_footer
 from utils.colors import FUEL_COLORS_HEX
 from utils.loaders import get_last_updated
+from utils.export import create_download_button
 
 
 def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
@@ -55,7 +57,6 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
             return 12
         
         # Use square root scaling for better visual distinction
-        import math
         normalized = (capacity - min_capacity) / (max_capacity - min_capacity)
         
         # ERCOT-style scaling: small plants visible, large plants prominent
@@ -63,6 +64,19 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
         return 6 + (sqrt_scaled * 25)  # Range: 6-31 pixels
     
     df['radius'] = df['capacity_mw'].apply(ercot_style_radius)
+    
+    # Tooltip configuration
+    tooltip = {
+        "html": "<b>{plant_name}</b><br/>Fuel: {fuel}<br/>Capacity: {capacity_mw} MW",
+        "style": {
+            "backgroundColor": "white",
+            "color": "black",
+            "fontSize": "14px",
+            "borderRadius": "6px",
+            "padding": "8px 12px",
+            "boxShadow": "0 2px 8px rgba(0,0,0,0.15)"
+        }
+    }
     
     # Create scatterplot layer with ERCOT-style appearance
     layer = pdk.Layer(
@@ -84,20 +98,22 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
         opacity=0.8
     )
     
-    # Texas-focused view (similar to ERCOT maps)
-        view_state = pdk.ViewState(
-            latitude=31.0,           # Texas center
-            longitude=-99.0,
-            zoom=6.2,                # Show all of Texas
-            pitch=0,
-            min_zoom=6,
-            max_zoom=8,
-        )
+    # Texas-focused locked viewport - MAXIMUM ZOOM OUT (4.7 - NEW VALUE!)
+    view_state = pdk.ViewState(
+        latitude=31.0,
+        longitude=-99.5,
+        zoom=4.7,
+        pitch=0,
+        min_zoom=4.7,
+        max_zoom=4.7,
+    )
     
     return pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
-        map_style='mapbox://styles/mapbox/light-v10'  # Clean style like ERCOT
+        map_style='mapbox://styles/mapbox/light-v10',
+        tooltip=tooltip,  # type: ignore
+        views=[pdk.View(type='MapView', controller=False)]
     )
 
 
@@ -133,19 +149,32 @@ def render_legend_and_counts(df: pd.DataFrame):
 
 
 def render():
-    """Render the Generation Map tab."""
-    st.header("Texas Power Generation Facilities")
+    """Render the Generation Map tab with comprehensive error handling."""
+    # Minimal header - ultra compact
+    st.markdown("### Texas Power Generation Facilities")
     
     try:
         # Load generation data
         data_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
+        
+        # Check if file exists
+        if not data_path.exists():
+            st.warning("⚠️ **Generation data not available**")
+            st.info("Run the ETL script to fetch power plant data from EIA.")
+            st.code("python etl/eia_plants_etl.py", language="bash")
+            return
+            
         df = pd.read_parquet(data_path)
+        
+        # Check if data is empty
+        if len(df) == 0:
+            st.warning("⚠️ **No generation facilities found**")
+            st.info("🔄 The data file is empty. Re-run the ETL script.")
+            st.code("python etl/eia_plants_etl.py", language="bash")
+            return
         
         # Clean and aggregate data
         clean_df = clean_and_aggregate_facilities(df)
-        
-        # Data status indicator
-        st.success(f"✅ **Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API")
         
         # Calculate KPIs
         total_plants = len(clean_df)
@@ -202,14 +231,29 @@ def render():
             </div>
             """, unsafe_allow_html=True)
         
-        # Interactive map
+        # Interactive map - full width, shorter height
         st.subheader("Interactive Facility Map")
         
         deck = create_fixed_texas_map(clean_df)
-        st.pydeck_chart(deck, use_container_width=True)
+        st.pydeck_chart(deck, height=500, use_container_width=True)
+        
+        # Data status indicator - MOVED BELOW MAP for better UX
+        st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API")
         
         # Enhanced legend with fuel colors
         render_legend_and_counts(clean_df)
+        
+        # Data Export Section
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Generation Facilities Data**")
+        with col2:
+            create_download_button(
+                df=clean_df,
+                filename_prefix="generation_facilities",
+                label="Download Facilities Data"
+            )
         
         # Fuel breakdown chart
         st.subheader("Generation Mix by Fuel Type")
@@ -269,10 +313,17 @@ def render():
         # Render footer
         render_data_source_footer('generation', get_last_updated(df))
         
-    except FileNotFoundError as e:
-        st.error(f"Generation data not available: {e}")
-        st.info("To generate the data, run: python etl/eia_plants_etl.py")
+    except KeyError as e:
+        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
+        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
+        st.code("python etl/eia_plants_etl.py", language="bash")
+        
+    except pd.errors.ParserError as e:
+        st.error(f"❌ **File Corrupted**: Unable to read generation data")
+        st.info("🔄 The parquet file may be damaged. Re-run the ETL script to regenerate.")
+        st.code("python etl/eia_plants_etl.py", language="bash")
         
     except Exception as e:
-        st.error(f"Error loading generation data: {e}")
-        st.info("Please ensure the ETL script has been run to generate the data file.")
+        st.error(f"❌ **Unexpected error loading generation data**: {str(e)}")
+        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
+        st.code("python etl/eia_plants_etl.py", language="bash")

@@ -90,10 +90,10 @@ def render_data_source_footer(dataset: str, last_updated: Optional[str] = None) 
     if status == 'live':
         # Clean, professional footer for live data
         st.markdown(f"""
-        **📊 Data Source:** {source_info['source']}  
-        **🔌 API:** {source_info['api']}  
-        **🔄 Updates:** {source_info['update_frequency']}  
-        {f"**⏰ Last Updated:** {last_updated}" if last_updated else ""}
+        **Data Source:** {source_info['source']}  
+        **API:** {source_info['api']}  
+        **Updates:** {source_info['update_frequency']}  
+        {f"**Last Updated:** {last_updated}" if last_updated else ""}
         """)
         
     elif status == 'demo':
@@ -108,11 +108,11 @@ def render_data_source_footer(dataset: str, last_updated: Optional[str] = None) 
             color: #991b1b;
             font-weight: bold;
         ">
-            ⚠️ TEMPORARY DEMO DATA ⚠️<br>
+            TEMPORARY DEMO DATA<br>
             <span style="font-size: 0.9em;">This section uses sample data for development only.</span><br>
             <span style="font-size: 0.8em; font-weight: normal;">
-                🎯 <strong>Will be replaced with:</strong> {source_info['target_source']}<br>
-                📝 <strong>Note:</strong> {source_info['note']}
+                <strong>Will be replaced with:</strong> {source_info['target_source']}<br>
+                <strong>Note:</strong> {source_info['note']}
             </span>
         </div>
         """, unsafe_allow_html=True)
@@ -129,11 +129,11 @@ def render_data_source_footer(dataset: str, last_updated: Optional[str] = None) 
             color: #92400e;
             font-weight: bold;
         ">
-            🚧 FEATURE NOT IMPLEMENTED 🚧<br>
+            FEATURE NOT IMPLEMENTED<br>
             <span style="font-size: 0.9em;">This tab is a placeholder showing the planned interface.</span><br>
             <span style="font-size: 0.8em; font-weight: normal;">
-                🎯 <strong>Planned Source:</strong> {source_info['target_source']}<br>
-                📝 <strong>Implementation:</strong> {source_info['note']}
+                <strong>Planned Source:</strong> {source_info['target_source']}<br>
+                <strong>Implementation:</strong> {source_info['note']}
             </span>
         </div>
         """, unsafe_allow_html=True)
@@ -145,13 +145,13 @@ def render_dashboard_disclaimer() -> None:
     """
     st.markdown("---")
     st.markdown("""
-    ### 📋 Dashboard Status
+    ### Dashboard Status
     
     This energy dashboard is under active development with mixed data sources:
     
-    - 🟢 **Live Data**: Real-time integration with automated updates
-    - 🟡 **Demo Data**: Sample data for development and testing  
-    - 🔴 **Not Implemented**: Planned features with empty schemas
+    - **Live Data**: Real-time integration with automated updates
+    - **Demo Data**: Sample data for development and testing  
+    - **Not Implemented**: Planned features with empty schemas
     
     **Development Goal**: Migrate all data sources to live, automated feeds for a comprehensive 
     view of the Texas electricity market.
@@ -162,11 +162,11 @@ def render_dashboard_disclaimer() -> None:
     
     status_data = []
     for dataset, info in DATA_SOURCES.items():
-        status_emoji = {
-            'live': '🟢 Live',
-            'demo': '🟡 Demo', 
-            'stub': '🔴 Stub'
-        }.get(info['status'], '❓ Unknown')
+        status_label = {
+            'live': 'Live',
+            'demo': 'Demo', 
+            'stub': 'Stub'
+        }.get(info['status'], 'Unknown')
         
         dataset_name = {
             'fuelmix': 'ERCOT Fuel Mix',
@@ -177,7 +177,7 @@ def render_dashboard_disclaimer() -> None:
         
         status_data.append({
             'Feature': dataset_name,
-            'Status': status_emoji,
+            'Status': status_label,
             'Source': info.get('source', 'Unknown')
         })
     

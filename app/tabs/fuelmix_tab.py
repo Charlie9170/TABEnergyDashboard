@@ -19,83 +19,77 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils.loaders import load_parquet, get_last_updated
 from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
 from utils.data_sources import render_data_source_footer
+from utils.export import create_download_button
 
 
 def render():
-    """Render the Fuel Mix tab."""
+    """Render the Fuel Mix tab with comprehensive error handling."""
     
-    # Local styles for a clean TAB-branded hero and KPI pills
-    st.markdown(
-        """
-        <style>
-            .fuelmix-hero .accent-bar { height: 6px; width: 140px; background: linear-gradient(90deg,#1B365D,#C8102E); border-radius: 4px; margin: 6px 0 18px 0; }
-            .fuelmix-hero .subtitle { color:#0B1939; opacity:0.85; font-size:0.98rem; margin-top:2px; }
-            .status-pill { display:inline-block; background:#F5F7FA; color:#0B1939; border-left:4px solid #1B365D; padding:6px 10px; border-radius:6px; font-size:0.85rem; font-weight:600; }
-            .kpi-pill { background:#FFFFFF; border:1px solid #E5E7EB; border-left:4px solid #1B365D; border-radius:10px; padding:12px 16px; }
-            .kpi-value { font-size:1.6rem; font-weight:700; color:#1B365D; margin:0; }
-            .kpi-label { font-size:0.9rem; color:#6B7280; margin:4px 0 0 0; font-weight:500; }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Hero section
-    st.markdown(
-        """
-        <div class="fuelmix-hero">
-            <h2 style="margin-bottom:4px; color:#1B365D; font-weight:800;">ERCOT Fuel Mix</h2>
-            <div class="accent-bar"></div>
-            <div class="subtitle">Hourly electricity generation by fuel type across the ERCOT grid.</div>
-            <div class="status-pill" style="margin-top:10px;">🟢 Live data · Auto-updated via EIA every 6 hours</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # Minimal header matching other tabs - ultra compact
+    st.markdown("### ERCOT Fuel Mix")
+    st.markdown("Hourly electricity generation by fuel type across the ERCOT grid.")
     
     try:
-        # Load data
-        df = load_parquet("fuelmix.parquet", "fuelmix")
+        # Load data with graceful error handling
+        df = load_parquet("fuelmix.parquet", "fuelmix", allow_empty=True)
+        
+        # Check if data is empty
+        if df is None or len(df) == 0:
+            st.warning("⚠️ **No fuel mix data available**")
+            st.info("Run the ETL scripts to fetch fresh data from EIA.")
+            st.code("python etl/eia_fuelmix_etl.py", language="bash")
+            return
         
         # Convert period to Central Time for display
         df['period_ct'] = df['period'].dt.tz_convert('America/Chicago')
         
-        # Calculate KPIs
-        col1, col2 = st.columns(2)
+        # Calculate KPIs - Unified metric card style matching other tabs
+        col1, col2, col3 = st.columns(3)
         
         with col1:
             # Average hourly total generation
             total_by_period = df.groupby('period')['value_mwh'].sum()
             avg_hourly = total_by_period.mean()
-            st.markdown(
-                f"""
-                <div class="kpi-pill">
-                    <p class="kpi-value">{avg_hourly:,.0f} MWh</p>
-                    <p class="kpi-label">Average Hourly Generation</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Average Hourly Generation</div>
+                <div class="metric-card-value">{avg_hourly:,.0f} MWh</div>
+                <div class="metric-card-subtitle">Last 7 Days</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         with col2:
+            # Peak generation hour
+            peak_generation = total_by_period.max()
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Peak Generation</div>
+                <div class="metric-card-value">{peak_generation:,.0f} MWh</div>
+                <div class="metric-card-subtitle">Highest Demand Period</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
             # Renewable share
             df['is_renewable'] = df['fuel'].apply(is_renewable)
             renewable_total = df[df['is_renewable']]['value_mwh'].sum()
             total = df['value_mwh'].sum()
             renewable_share = (renewable_total / total * 100) if total > 0 else 0
             
-            st.markdown(
-                f"""
-                <div class="kpi-pill">
-                    <p class="kpi-value">{renewable_share:.1f}%</p>
-                    <p class="kpi-label">Renewable Energy Share</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-card-title">Renewable Energy Share</div>
+                <div class="metric-card-value">{renewable_share:.1f}%</div>
+                <div class="metric-card-subtitle">Solar, Wind, Hydro, Biomass</div>
+            </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
         
-    # Create stacked area chart with Plotly
+        # Section header matching other tabs
+        st.subheader("ERCOT Generation by Fuel Type (Last 7 Days)")
+        
+        # Create stacked area chart with Plotly
         fig = go.Figure()
         
         # Pivot data for plotting
@@ -123,13 +117,12 @@ def render():
                 hovertemplate='%{y:,.0f} MWh<extra></extra>',
             ))
         
-        # Update layout - using global tab_theme from main.py
+        # Update layout - clean and consistent
         fig.update_layout(
-            title="ERCOT Generation by Fuel Type (Last 7 Days)",
             xaxis_title="Time (Central Time)",
             yaxis_title="Generation (MWh)",
             hovermode='x unified',
-            height=500,
+            height=450,
             legend=dict(
                 orientation="h",
                 yanchor="top",
@@ -149,10 +142,33 @@ def render():
         
         st.plotly_chart(fig, use_container_width=True)
         
+        # Data Export Section
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Data for Reports & Presentations**")
+        with col2:
+            create_download_button(
+                df=df,
+                filename_prefix="fuelmix_hourly",
+                label="Download Fuel Mix Data"
+            )
+        
         # Data source footer
         last_updated = get_last_updated(df)
         render_data_source_footer('fuelmix', last_updated)
         
+    except KeyError as e:
+        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
+        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
+        st.code("python etl/eia_fuelmix_etl.py", language="bash")
+        
+    except pd.errors.EmptyDataError:
+        st.warning("⚠️ **No data available**")
+        st.info("🔄 Run the ETL script to fetch fresh fuel mix data.")
+        st.code("python etl/eia_fuelmix_etl.py", language="bash")
+        
     except Exception as e:
-        st.error(f"Error loading fuel mix data: {str(e)}")
-        st.info("Please ensure the ETL script has been run to generate the data file.")
+        st.error(f"❌ **Unexpected error loading fuel mix data**: {str(e)}")
+        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
+        st.code("python etl/eia_fuelmix_etl.py", language="bash")

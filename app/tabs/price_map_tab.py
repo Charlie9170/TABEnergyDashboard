@@ -17,10 +17,11 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
 from utils.data_sources import render_data_source_footer
+from utils.export import create_download_button
 
 
 def render():
-    """Render the Price Map tab."""
+    """Render the Price Map tab with comprehensive error handling."""
     
     # Temporary demo data warning
     st.markdown("""
@@ -33,7 +34,7 @@ def render():
         text-align: center;
         color: #991b1b;
     ">
-        <h3 style="margin-top: 0; color: #dc2626;">⚠️ DEMO DATA ONLY ⚠️</h3>
+        <h3 style="margin-top: 0; color: #dc2626;">DEMO DATA ONLY</h3>
         <p style="font-size: 1.1em; margin-bottom: 10px;">
             This map shows <strong>sample data for development purposes</strong>
         </p>
@@ -43,16 +44,23 @@ def render():
     </div>
     """, unsafe_allow_html=True)
     
-    # Header
-    st.header("ERCOT Price Map")
+    # Header - ultra compact
+    st.markdown("### ERCOT Price Map")
     st.markdown(
         "Real-time locational marginal prices (LMP) across ERCOT nodes. "
         "Dot size indicates price level; larger dots represent higher prices."
     )
     
     try:
-        # Load data
-        df = load_parquet("price_map.parquet", "price_map")
+        # Load data with error handling
+        df = load_parquet("price_map.parquet", "price_map", allow_empty=True)
+        
+        # Check if data is empty
+        if df is None or len(df) == 0:
+            st.warning("⚠️ **No price data available**")
+            st.info("Run the ETL script to generate demo price map data.")
+            st.code("python etl/price_map_etl.py", language="bash")
+            return
         
         # Calculate price quantiles for color coding
         df['price_quantile'] = pd.qcut(
@@ -62,13 +70,13 @@ def render():
             duplicates='drop'
         ).astype(str)  # Convert categorical to string to avoid hashing issues
         
-        # Map quantiles to colors (green to red scale)
+        # Map quantiles to colors (red/coral scale matching generation map)
         quantile_colors = {
-            'Very Low': [20, 184, 166, 200],   # Teal
-            'Low': [52, 211, 153, 200],        # Green
-            'Medium': [234, 179, 8, 200],      # Yellow
-            'High': [251, 146, 60, 200],       # Orange
-            'Very High': [239, 68, 68, 200],   # Red
+            'Very Low': [255, 150, 130, 180],   # Light coral
+            'Low': [255, 120, 100, 180],        # Coral
+            'Medium': [255, 90, 70, 180],       # Red-coral
+            'High': [230, 60, 50, 180],         # Deep red
+            'Very High': [200, 30, 30, 180],    # Dark red
         }
         
         # Assign colors using list comprehension to avoid pandas indexing issues
@@ -119,17 +127,30 @@ def render():
         center_lat = df['lat'].mean()
         center_lon = df['lon'].mean()
         
-        # Define view state for Texas
+        # Texas-focused locked viewport - MAXIMUM ZOOM OUT (4.7 - NEW VALUE!)
         view_state = pdk.ViewState(
             latitude=31.0,
-            longitude=-99.0,
-            zoom=6.2,
+            longitude=-99.5,
+            zoom=4.7,
             pitch=0,
-            min_zoom=6,
-            max_zoom=8,
+            min_zoom=4.7,
+            max_zoom=4.7,
         )
         
-        # Create pydeck layer  
+        # Tooltip configuration matching generation map
+        tooltip = {
+            "html": "<b>{region}</b><br/>Price: {price_cperkwh}¢/kWh<br/>Level: {price_quantile}",
+            "style": {
+                "backgroundColor": "white",
+                "color": "black",
+                "fontSize": "14px",
+                "borderRadius": "6px",
+                "padding": "8px 12px",
+                "boxShadow": "0 2px 8px rgba(0,0,0,0.15)"
+            }
+        }
+        
+        # Create pydeck layer with white outlines like generation map
         layer = pdk.Layer(
             "ScatterplotLayer",
             data=df,
@@ -140,29 +161,47 @@ def render():
             radius_min_pixels=8,
             radius_max_pixels=100,
             pickable=True,
+            auto_highlight=True,
             stroked=True,
             filled=True,
+            get_line_color=[255, 255, 255, 150],  # White outline like generation map
             line_width_min_pixels=1,
+            line_width_max_pixels=2,
+            opacity=0.8
         )
         
-        # Render map (remove problematic tooltip for now)
+        # Render map with LIGHT background matching generation map
         deck = pdk.Deck(
             layers=[layer],
             initial_view_state=view_state,
-            map_style='mapbox://styles/mapbox/dark-v10',
+            map_style='mapbox://styles/mapbox/light-v10',  # Changed from dark to light
+            tooltip=tooltip,  # type: ignore
+            views=[pdk.View(type='MapView', controller=False)]
         )
         
-        st.pydeck_chart(deck)
+        st.pydeck_chart(deck, height=500, use_container_width=True)
         
-        # Legend
+        # Data Export Section
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Price Data** (Demo Data - Real data coming with YesEnergy)")
+        with col2:
+            create_download_button(
+                df=df,
+                filename_prefix="price_map_demo",
+                label="Download Price Data"
+            )
+        
+        # Legend (red/coral color scheme matching generation map)
         st.markdown("### Price Levels")
         legend_cols = st.columns(5)
         legend_items = [
-            ('Very Low', '#14b8a6'),
-            ('Low', '#34d399'),
-            ('Medium', '#eab308'),
-            ('High', '#fb923c'),
-            ('Very High', '#ef4444'),
+            ('Very Low', '#ff9682'),
+            ('Low', '#ff7864'),
+            ('Medium', '#ff5a46'),
+            ('High', '#e63c32'),
+            ('Very High', '#c81e1e'),
         ]
         
         for col, (label, color) in zip(legend_cols, legend_items):
@@ -176,6 +215,17 @@ def render():
         last_updated = get_last_updated(df)
         render_data_source_footer('price_map', last_updated)
         
+    except KeyError as e:
+        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
+        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
+        st.code("python etl/price_map_etl.py", language="bash")
+        
+    except pd.errors.ParserError:
+        st.error(f"❌ **File Corrupted**: Unable to read price map data")
+        st.info("🔄 The parquet file may be damaged. Re-run the ETL script.")
+        st.code("python etl/price_map_etl.py", language="bash")
+        
     except Exception as e:
-        st.error(f"Error loading price map data: {str(e)}")
-        st.info("Please ensure the ETL script has been run to generate the data file.")
+        st.error(f"❌ **Unexpected error loading price map**: {str(e)}")
+        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
+        st.code("python etl/price_map_etl.py", language="bash")

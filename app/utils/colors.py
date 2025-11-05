@@ -30,22 +30,31 @@ NEUTRAL_COLORS = {
     "background": "#FFFFFF",   # White - Page background
 }
 
-# Fuel Type Color Palette - TAB Brand Aligned
+# Fuel Type Color Palette - TAB Brand Colors Only
+# Two main colors match TAB logo exactly: Navy #1B365D and Red #C8102E
+# Supporting colors use lighter grays and complementary muted blues
 FUEL_COLORS_HEX = {
-    "GAS": "#C8102E",          # TAB Red - Natural Gas (dominant fuel in Texas)
+    # Two largest fuel sources - EXACT TAB logo colors
+    "GAS": "#C8102E",          # TAB Red - Natural Gas (EXACT logo red)
     "NATURAL GAS": "#C8102E",  # Alias
-    "COAL": "#4A5568",         # Slate 600 - Coal
-    "NUCLEAR": "#7C3AED",      # Violet 600 - Nuclear
-    "SOLAR": "#F59E0B",        # Amber 500 - Solar Energy
-    "SUN": "#F59E0B",          # Alias for Solar
-    "WIND": "#1B365D",         # TAB Navy - Wind Energy (major Texas resource)
-    "HYDRO": "#0EA5E9",        # Sky 500 - Hydroelectric
-    "STORAGE": "#3B82F6",      # Blue 500 - Battery Storage
-    "BATTERY STORAGE": "#3B82F6",  # Alias
-    "OIL": "#DC2626",          # Red 600 - Petroleum/Oil
-    "BIOMASS": "#059669",      # Emerald 600 - Biomass
-    "OTHER": "#64748B",        # Slate 500 - Other/Unknown
-    "UNKNOWN ENERGY STORAGE": "#9CA3AF",  # Gray 400
+    "WIND": "#1B365D",         # TAB Navy - Wind (EXACT logo navy)
+    
+    # Supporting sources - Complementary to TAB colors
+    "NUCLEAR": "#A0102E",      # Dark Maroon (TAB Red variation)
+    "COAL": "#4A6B8A",         # Soft Blue-Gray (complementary to TAB Navy, lighter)
+    "SOLAR": "#E8EAED",        # Very Light Gray (nearly white)
+    "SUN": "#E8EAED",          # Alias for Solar
+    
+    # Smaller sources - Near-whites and subtle blues
+    "HYDRO": "#F0F1F3",        # Off-White (very light)
+    "STORAGE": "#D6D9DD",      # Light Silver Gray
+    "BATTERY STORAGE": "#D6D9DD",  # Alias
+    "OIL": "#6B8CAE",          # Soft Slate Blue (complementary, muted)
+    "BIOMASS": "#F3F4F6",      # Near White
+    
+    # Catchall
+    "OTHER": "#F8F9FA",        # Almost White
+    "UNKNOWN ENERGY STORAGE": "#FCFCFD",  # Pure White tint
 }
 
 

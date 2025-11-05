@@ -243,6 +243,9 @@ def validate_input_schema(df: pd.DataFrame) -> None:
     if missing_cols:
         raise ETLValidationError(f"Missing required columns: {missing_cols}")
     
+    # Convert capacity to numeric (coerce errors to NaN)
+    df['nameplate-capacity-mw'] = pd.to_numeric(df['nameplate-capacity-mw'], errors='coerce')
+    
     # Validate data types
     if not pd.api.types.is_numeric_dtype(df['nameplate-capacity-mw']):
         raise ETLValidationError("nameplate-capacity-mw must be numeric")

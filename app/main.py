@@ -11,7 +11,23 @@ Features:
 - Energy market data visualization
 
 Data sources: U.S. EIA, ERCOT CDR Reports
-Updated automatically via robust ETL processes.
+Updated # Navigation Tabs
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "About & Data Sources"])
+
+with tab1:
+    fuelmix_tab.render()
+
+with tab2:
+    price_map_tab.render()
+
+with tab3:
+    generation_tab.render()
+
+with tab4:
+    queue_tab.render()
+
+with tab5:
+    about_tab.render()via robust ETL processes.
 """
 
 import streamlit as st
@@ -71,13 +87,13 @@ except Exception:
     pass
 
 # Import tab modules
-from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab
+from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab, about_tab
 from utils.data_sources import render_dashboard_disclaimer
 
 # Page configuration
 st.set_page_config(
     page_title="Texas Association of Business - Energy Dashboard",
-    page_icon="🏢",
+    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -97,33 +113,52 @@ st.markdown("""
 <style>
     /* TAB Official Colors: Navy Blue #1B365D, Red #C8102E, White #FFFFFF */
     
+    /* LAYOUT with VISIBLE TOP SPACING */
     .main .block-container {
         background-color: #FFFFFF;
-        padding-top: 0rem;
-        padding-bottom: 2rem;
-        max-width: 1200px;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        max-width: 1600px;
     }
     
-    /* Navigation bar like txbiznews.com */
+    /* Reduce spacing between ALL elements - ULTRA AGGRESSIVE */
+    .element-container {
+        margin-bottom: 0.05rem !important;
+    }
+    
+    /* Compact section spacing */
+    section.main > div {
+        padding-top: 0 !important;
+    }
+    
+    /* Remove extra Streamlit spacing */
+    .stMarkdown {
+        margin-bottom: 0.1rem !important;
+    }
+    
+    /* Navigation bar - NO NEGATIVE MARGINS */
     .top-nav {
         background-color: #1B365D;
-        padding: 0.5rem 2rem;
-        margin: -1rem -2rem 0 -2rem;
+        padding: 0.3rem 2rem;
+        margin: 0 -2rem 0.8rem -2rem;
         color: #FFFFFF;
         text-align: center;
-        font-size: 0.875rem;
+        font-size: 0.75rem;
         font-weight: 500;
         letter-spacing: 0.5px;
+        line-height: 1.3;
     }
     
-    /* Main header matching txbiznews style */
+    /* Main header - COMPACT */
     .main-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 2rem 0 1.5rem 0;
-        border-bottom: 3px solid #1B365D;
-        margin-bottom: 2rem;
+        padding: 0.4rem 0 0.3rem 0;
+        border-bottom: 2px solid #1B365D;
+        margin-bottom: 0.4rem;
     }
     
     .header-content {
@@ -132,44 +167,53 @@ st.markdown("""
     
     .main-title {
         color: #1B365D;
-        font-size: 2.25rem;
+        font-size: 1.3rem;
         font-weight: 700;
         margin: 0;
-        line-height: 1.2;
+        line-height: 1;
     }
     
     .main-subtitle {
         color: #C8102E;
-        font-size: 1rem;
-        margin: 0.5rem 0 0 0;
+        font-size: 0.7rem;
+        margin: 0.15rem 0 0 0;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     
     .header-logo {
-        margin-left: 2rem;
+        margin-left: 1rem;
     }
     
-    /* Clean professional tabs */
+    .header-logo img {
+        height: 40px !important;
+    }
+    
+    /* Clean professional tabs - ULTRA-COMPACT */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
         background-color: transparent;
         padding: 0;
         border-bottom: none;
         justify-content: center;
+        margin-bottom: 0.25rem;
     }
     
     .stTabs [data-baseweb="tab"] {
         background-color: #F8F9FA;
         color: #6C757D;
         border: 1px solid #DEE2E6;
-        border-radius: 6px 6px 0 0;
-        padding: 12px 20px;
+        border-radius: 4px 4px 0 0;
+        padding: 6px 14px;
         font-weight: 500;
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         transition: all 0.2s ease;
         margin-right: 2px;
+    }
+    
+    .stTabs [data-baseweb="tab-panel"] {
+        padding-top: 0.5rem;
     }
     
     .stTabs [aria-selected="true"] {
@@ -184,25 +228,49 @@ st.markdown("""
         color: #1B365D;
     }
     
-    /* Professional KPI cards */
+    /* Professional KPI cards - ULTRA-COMPACT */
     .metric-card {
         background: #FFFFFF;
-        border: 2px solid #E9ECEF;
-        border-radius: 12px;
-        padding: 1.75rem;
+        border: 1px solid #E9ECEF;
+        border-radius: 6px;
+        padding: 0.6rem 0.8rem;
         text-align: center;
         transition: all 0.3s ease;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
     }
     
     .metric-card:hover {
         border-color: #C8102E;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transform: translateY(-1px);
+    }
+    
+    .metric-card-title {
+        font-size: 0.65rem;
+        color: #6C757D;
+        margin: 0 0 0.3rem 0;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+    
+    .metric-card-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #1B365D;
+        margin: 0;
+        line-height: 1;
+    }
+    
+    .metric-card-subtitle {
+        font-size: 0.65rem;
+        color: #6C757D;
+        margin: 0.2rem 0 0 0;
+        font-weight: 400;
     }
     
     .metric-value {
-        font-size: 3rem;
+        font-size: 1.8rem;
         font-weight: 700;
         color: #1B365D;
         margin: 0;
@@ -210,9 +278,9 @@ st.markdown("""
     }
     
     .metric-label {
-        font-size: 1rem;
+        font-size: 0.75rem;
         color: #6C757D;
-        margin: 0.75rem 0 0 0;
+        margin: 0.3rem 0 0 0;
         font-weight: 500;
     }
     
@@ -251,17 +319,22 @@ st.markdown("""
         100% { opacity: 1; }
     }
     
-    /* Clean section headers */
+    /* Clean section headers - ULTRA-COMPACT */
     .section-header {
         color: #1B365D;
-        font-size: 1.75rem;
+        font-size: 1.1rem;
         font-weight: 600;
-        margin: 2rem 0 1rem 0;
-        padding-bottom: 0.5rem;
+        margin: 0.5rem 0 0.4rem 0;
+        padding-bottom: 0.3rem;
         border-bottom: 2px solid #E9ECEF;
     }
     
-    /* Professional buttons */
+    /* Streamlit subheaders - ULTRA MINIMAL SPACING */
+    h2, h3 {
+        margin: 0.1rem 0 !important;
+        padding: 0.1rem 0 !important;
+        font-size: 1.0rem !important;
+    }    /* Professional buttons */
     .stButton > button {
         background: linear-gradient(135deg, #1B365D 0%, #2C4F7C 100%);
         color: #FFFFFF;
@@ -287,33 +360,33 @@ st.markdown("""
         font-weight: 600;
     }
     
-    /* Footer matching txbiznews style */
+    /* Footer - ULTRA-COMPACT */
     .footer-section {
         background: #F8F9FA;
-        border-top: 3px solid #1B365D;
-        padding: 2.5rem 2rem;
-        margin: 3rem -2rem -2rem -2rem;
+        border-top: 2px solid #1B365D;
+        padding: 1rem 1rem;
+        margin: 1rem -0.75rem -0.5rem -0.75rem;
         text-align: center;
     }
     
     .footer-branding {
         color: #1B365D;
-        font-size: 1.1rem;
+        font-size: 0.8rem;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     
     .footer-tagline {
         color: #C8102E;
-        font-size: 0.95rem;
+        font-size: 0.7rem;
         font-weight: 500;
-        margin-bottom: 1rem;
+        margin-bottom: 0.3rem;
     }
     
     .footer-details {
         color: #6C757D;
-        font-size: 0.85rem;
-        line-height: 1.6;
+        font-size: 0.65rem;
+        line-height: 1.4;
     }
     
     /* Hide default Streamlit elements */
@@ -323,42 +396,91 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Professional Header matching txbiznews.com
+# Professional Header - COMPACT TOP BAR
 st.markdown("""
-<div class="top-nav">
+<div class="top-nav" style="
+    padding: 0.25rem 1.5rem;
+    font-size: 0.72rem;
+    margin-bottom: 0.2rem;
+    height: 26px;
+    background-color: #1B365D;
+    color: white;
+    text-align: center;
+    position: relative;
+    z-index: 100;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+">
     Pro Business, Pro Texas | Powered by the Texas Association of Business
 </div>
 """, unsafe_allow_html=True)
 
+# MINIMAL SPACER - Reduced gap
+st.markdown('<div style="height: 4px; background: transparent;"></div>', unsafe_allow_html=True)
+
 st.markdown(
     f"""
-<div class="main-header">
+<div class="main-header" style="
+    margin-top: 0.2rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid #e0e0e0;
+">
     <div class="header-content">
         <h1 class="main-title">Texas Energy Dashboard</h1>
         <p class="main-subtitle">Real-time Energy Market Intelligence</p>
     </div>
-    <div class="header-logo">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXx_Eu106CitCIUeTPpgvqP7RmB_pUfI5fcg&s" alt="TAB Logo" style="height:64px; object-fit:contain;" />
+    <div class="header-logo" style="border:none; outline:none; box-shadow:none;">
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTXx_Eu106CitCIUeTPpgvqP7RmB_pUfI5fcg&s" alt="TAB Logo" style="height:40px; object-fit:contain; border:none !important; background:transparent; box-shadow:none !important; outline:none !important; display:block;" />
     </div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
-# Tab navigation using Streamlit tabs
-tab1, tab2, tab3, tab4 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue"])
+# Tab navigation using Streamlit tabs with error handling
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "About & Data Sources"])
 
 with tab1:
-    fuelmix_tab.render()
+    try:
+        fuelmix_tab.render()
+    except Exception as e:
+        st.error("❌ **Error Loading Fuel Mix Tab**")
+        st.error(f"Details: {str(e)}")
+        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
 
 with tab2:
-    price_map_tab.render()
+    try:
+        price_map_tab.render()
+    except Exception as e:
+        st.error("❌ **Error Loading Price Map Tab**")
+        st.error(f"Details: {str(e)}")
+        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
 
 with tab3:
-    generation_tab.render()
+    try:
+        generation_tab.render()
+    except Exception as e:
+        st.error("❌ **Error Loading Generation Map Tab**")
+        st.error(f"Details: {str(e)}")
+        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
 
 with tab4:
-    queue_tab.render()
+    try:
+        queue_tab.render()
+    except Exception as e:
+        st.error("❌ **Error Loading Interconnection Queue Tab**")
+        st.error(f"Details: {str(e)}")
+        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+
+with tab5:
+    try:
+        about_tab.render()
+    except Exception as e:
+        st.error("❌ **Error Loading About Tab**")
+        st.error(f"Details: {str(e)}")
+        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
 
 # Global dashboard disclaimer and status
 render_dashboard_disclaimer()
