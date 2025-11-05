@@ -34,18 +34,24 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
           python etl/eia_fuelmix_etl.py
+        continue-on-error: true  # Don't fail entire workflow
       
       - name: Run Price Map ETL (demo data)
         run: |
           python etl/price_map_etl.py
+        continue-on-error: true  # Don't fail entire workflow
       
       - name: Run EIA Plants ETL (stub)
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
           python etl/eia_plants_etl.py
+        continue-on-error: true  # Don't fail entire workflow if this fails
       
-      - name: Run Interconnection Queue ETL (stub)
+      - name: Run Interconnection Queue ETL
         run: |
-          python etl/interconnection_etl.py
+          python etl/ercot_queue_etl.py
+        continue-on-error: true  # Don't fail if CDR file issues
       
       - name: Validate data files
         run: |
