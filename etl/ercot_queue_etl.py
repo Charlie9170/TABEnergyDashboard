@@ -38,6 +38,22 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# Ensure we can import from the same directory (for GitHub Actions)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import Texas county geocoding
+try:
+    from texas_counties import get_county_coordinates, validate_coordinates
+except ImportError as e:
+    # If import fails, log detailed error
+    import traceback
+    print(f"ERROR: Failed to import texas_counties module: {e}")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Script directory: {os.path.dirname(os.path.abspath(__file__))}")
+    print(f"Python path: {sys.path}")
+    traceback.print_exc()
+    raise ImportError("texas_counties.py must be in the etl/ directory") from e
+
 
 # Configure logging
 logging.basicConfig(
@@ -79,7 +95,7 @@ def validate_queue_schema(df: pd.DataFrame) -> bool:
         ETLValidationError: If schema validation fails
     """
     required_columns = [
-        'project_name', 'capacity_mw', 'fuel', 'status', 
+        'project_name', 'capacity_mw', 'fuel_type', 'status', 
         'expected_date', 'county', 'technology', 'lat', 'lon'
     ]
     
@@ -113,60 +129,54 @@ def validate_queue_schema(df: pd.DataFrame) -> bool:
     return True
 
 
-def get_realistic_coordinates(project_name: str, county: str, fuel: str) -> Tuple[float, float]:
+def get_county_coordinates_for_project(
+    project_name: str, 
+    county: str, 
+    fuel_type: str
+) -> Tuple[float, float]:
     """
-    Generate realistic coordinates for Texas energy projects based on:
-    - County information (if available)
-    - Fuel type characteristics (wind in west, solar distributed, gas near cities)
-    - Project name patterns
+    Get real coordinates for project based on its Texas county.
+    
+    Uses static county centroid database (texas_counties.py) for reliable,
+    offline geocoding. Adds small random jitter to prevent overlapping dots
+    for multiple projects in the same county.
     
     Args:
-        project_name: Name of the energy project
-        county: County location (if available)
-        fuel: Fuel type
+        project_name: Name of the energy project (for jitter seed)
+        county: County location from ERCOT data (e.g., "HARRIS")
+        fuel_type: Fuel type (for logging context only)
         
     Returns:
-        Tuple of (latitude, longitude)
+        Tuple of (latitude, longitude) with county centroid + jitter
+        
+    Example:
+        >>> get_county_coordinates_for_project("Solar Farm 1", "HARRIS", "Solar")
+        (29.7821, -95.3512)  # Harris County centroid + small jitter
     """
-    # Create deterministic coordinates based on project characteristics
-    project_hash = hashlib.md5(f"{project_name}{county}{fuel}".encode()).hexdigest()
+    # Get real county centroid from static database
+    lat, lon = get_county_coordinates(county)
+    
+    # Add tiny random jitter (±0.03 degrees ≈ 2 miles) to avoid overlapping dots
+    # Uses project name as seed for deterministic results
+    project_hash = hashlib.md5(f"{project_name}{county}".encode()).hexdigest()
     base_seed = int(project_hash[:8], 16)
-    
-    # Texas bounds
-    texas_lat_min, texas_lat_max = 25.84, 36.50
-    texas_lon_min, texas_lon_max = -106.65, -93.51
-    
-    # Fuel-specific regional preferences
-    if fuel in ['WIND-O', 'WIND']:  # Wind projects in western Texas
-        lat_range = (31.5, 35.0)  # Panhandle and West Texas
-        lon_range = (-104.0, -99.5)
-    elif fuel in ['SOLAR-O', 'SOLAR-W', 'SOLAR']:  # Solar distributed but concentrated in south/west
-        lat_range = (27.0, 33.0)
-        lon_range = (-104.0, -97.0)
-    elif fuel in ['GAS', 'NATGAS']:  # Gas plants near population centers
-        lat_range = (29.0, 33.5)  # Houston to Dallas corridor
-        lon_range = (-98.5, -94.5)
-    elif fuel in ['STORAGE']:  # Battery storage near load centers
-        lat_range = (29.5, 33.0)
-        lon_range = (-97.5, -95.0)
-    else:  # Other fuel types distributed across Texas
-        lat_range = (texas_lat_min, texas_lat_max)
-        lon_range = (texas_lon_min, texas_lon_max)
-    
-    # Generate coordinates with some randomization within region
     np.random.seed(base_seed % (2**32))
-    lat = np.random.uniform(lat_range[0], lat_range[1])
-    lon = np.random.uniform(lon_range[0], lon_range[1])
     
-    # Add small random offset to avoid grid patterns
-    lat += np.random.normal(0, 0.1)
-    lon += np.random.normal(0, 0.1)
+    jitter_lat = np.random.uniform(-0.03, 0.03)
+    jitter_lon = np.random.uniform(-0.03, 0.03)
     
-    # Ensure coordinates stay within Texas bounds
-    lat = np.clip(lat, texas_lat_min, texas_lat_max)
-    lon = np.clip(lon, texas_lon_min, texas_lon_max)
+    final_lat = round(lat + jitter_lat, 4)
+    final_lon = round(lon + jitter_lon, 4)
     
-    return round(lat, 4), round(lon, 4)
+    # Validate final coordinates are still in Texas
+    if not validate_coordinates(final_lat, final_lon):
+        logger.warning(
+            f"Jittered coordinates for {project_name} in {county} "
+            f"fell outside Texas bounds. Using exact centroid."
+        )
+        return round(lat, 4), round(lon, 4)
+    
+    return final_lat, final_lon
 
 
 def parse_ercot_cdr_data(file_path: str) -> pd.DataFrame:
@@ -240,7 +250,7 @@ def parse_ercot_cdr_data(file_path: str) -> pd.DataFrame:
         
         # Map columns to standard names
         standardized_df['project_name'] = queue_projects['UNIT NAME'].fillna('Unknown Project')
-        standardized_df['fuel'] = queue_projects['FUEL'].fillna('Unknown')
+        standardized_df['fuel_type'] = queue_projects['FUEL'].fillna('Unknown')
         standardized_df['technology'] = queue_projects['TECHNOLOGY'].fillna('Unknown')
         standardized_df['status'] = queue_projects['CDR STATUS'].fillna('PLAN')
         standardized_df['county'] = queue_projects['COUNTY'].fillna('Unknown County')
@@ -280,11 +290,11 @@ def parse_ercot_cdr_data(file_path: str) -> pd.DataFrame:
                 base_date + pd.Timedelta(days=i*30) for i in range(len(standardized_df))
             ]
         
-        # Add realistic coordinates
+        # Add accurate coordinates based on county centroids
         coordinates = []
         for _, row in standardized_df.iterrows():
-            lat, lon = get_realistic_coordinates(
-                row['project_name'], row['county'], row['fuel']
+            lat, lon = get_county_coordinates_for_project(
+                row['project_name'], row['county'], row['fuel_type']
             )
             coordinates.append((lat, lon))
         
@@ -307,14 +317,14 @@ def parse_ercot_cdr_data(file_path: str) -> pd.DataFrame:
             'STORAGE': 'Battery Storage',
             'NATGAS': 'Natural Gas'
         }
-        standardized_df['fuel'] = standardized_df['fuel'].map(fuel_mapping).fillna(standardized_df['fuel'])
+        standardized_df['fuel_type'] = standardized_df['fuel_type'].map(fuel_mapping).fillna(standardized_df['fuel_type'])
         
         logger.info(f"✅ Successfully standardized {len(standardized_df)} queue projects")
         
         # Log summary statistics
         logger.info("Queue Summary:")
         logger.info(f"  Total capacity: {standardized_df['capacity_mw'].sum():,.0f} MW")
-        logger.info(f"  Fuel mix: {standardized_df['fuel'].value_counts().to_dict()}")
+        logger.info(f"  Fuel mix: {standardized_df['fuel_type'].value_counts().to_dict()}")
         logger.info(f"  Status distribution: {standardized_df['status'].value_counts().to_dict()}")
         
         return standardized_df
