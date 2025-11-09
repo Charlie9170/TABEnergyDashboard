@@ -44,6 +44,21 @@ SCHEMAS = {
         "status": "object",
         "last_updated": "object",
     },
+    "minerals": {
+        "deposit_name": "object",
+        "lat": "float64",
+        "lon": "float64",
+        "minerals": "object",
+        "estimated_tonnage": "float64",
+        "development_status": "object",
+        "county": "object",
+        "details": "object",
+        "color": "object",
+        "radius": "float64",
+        "tooltip": "object",
+        "data_source": "object",
+        "last_updated": "object",
+    },
 }
 
 # Column name aliases for normalization
@@ -79,6 +94,15 @@ COLUMN_ALIASES = {
         "nameplate_mw": "proposed_mw",
         "mw": "proposed_mw",
         "type": "fuel",
+    },
+    "minerals": {
+        "name": "deposit_name",
+        "site_name": "deposit_name",
+        "latitude": "lat",
+        "longitude": "lon",
+        "mineral_list": "minerals",
+        "tonnage": "estimated_tonnage",
+        "status": "development_status",
     },
 }
 

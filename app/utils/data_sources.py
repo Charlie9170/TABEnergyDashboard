@@ -42,6 +42,15 @@ DATA_SOURCES = {
         'update_frequency': 'Monthly via ERCOT CDR Report publication',
         'url': 'https://www.ercot.com/gridinfo/resource',
         'data_file': 'CapacityDemandandReservesReport_May2025_Revised.xlsx'
+    },
+    'minerals': {
+        'status': 'live',
+        'source': 'Manual Curation + Geological Surveys',
+        'api': 'Texas General Land Office, USGS, Industry Disclosures',
+        'coverage': 'REEs and Critical Minerals deposits in Texas',
+        'update_frequency': 'Manual updates as new deposits are discovered',
+        'url': 'https://www.glo.texas.gov/',
+        'note': 'Data compiled from GLO reports, USGS surveys, and industry announcements'
     }
 }
 

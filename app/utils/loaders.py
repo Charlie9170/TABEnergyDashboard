@@ -164,6 +164,7 @@ def get_last_updated(df: pd.DataFrame) -> str:
         return f'Error: {str(e)}'
 
 
+@st.cache_data(ttl=60)  # Cache for 1 minute
 def get_file_modification_time(filename: str) -> str:
     """
     Get the last modification time of a data file.

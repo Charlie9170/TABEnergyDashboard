@@ -11,7 +11,23 @@ Features:
 - Energy market data visualization
 
 Data sources: U.S. EIA, ERCOT CDR Reports
-Updated via robust ETL processes.
+Updated # Navigation Tabs
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "About & Data Sources"])
+
+with tab1:
+    fuelmix_tab.render()
+
+with tab2:
+    price_map_tab.render()
+
+with tab3:
+    generation_tab.render()
+
+with tab4:
+    queue_tab.render()
+
+with tab5:
+    about_tab.render()via robust ETL processes.
 """
 
 import streamlit as st
@@ -71,7 +87,7 @@ except Exception:
     pass
 
 # Import tab modules
-from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab, minerals_tab, about_tab
+from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab, about_tab
 from utils.data_sources import render_dashboard_disclaimer
 
 # Page configuration
@@ -81,11 +97,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
-
-# Initialize session state to prevent re-renders
-if 'initialized' not in st.session_state:
-    st.session_state.initialized = True
-    st.session_state.last_tab = None
 
 # Load Professional TAB Design System
 def load_custom_css():
@@ -429,7 +440,7 @@ st.markdown(
 )
 
 # Tab navigation using Streamlit tabs with error handling
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "Minerals & Critical Minerals", "About & Data Sources"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "About & Data Sources"])
 
 with tab1:
     try:
@@ -464,14 +475,6 @@ with tab4:
         st.info("🔄 Try refreshing the page or contact support if the issue persists.")
 
 with tab5:
-    try:
-        minerals_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading Minerals & Critical Minerals Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
-
-with tab6:
     try:
         about_tab.render()
     except Exception as e:

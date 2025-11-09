@@ -45,16 +45,17 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid project coordinates found in Texas bounds")
         return None
     
-    # CRITICAL FIX #2: Proper logarithmic radius scaling
+    # CRITICAL FIX #2: Percentile-based radius scaling for visual differentiation
     max_capacity = df['capacity_mw'].max()
     min_capacity = df['capacity_mw'].min()
     
-    def proper_radius_scaling(capacity):
+    def percentile_radius_scaling(capacity):
         """
-        Logarithmic scaling so size differences are actually visible.
-        Small projects: 6-10px
-        Medium projects: 10-20px
-        Large projects: 20-40px
+        Scale radius based on capacity percentiles for clear size differences:
+        - Bottom 33%: Small dots (8-12px)
+        - Middle 33%: Medium dots (12-18px)  
+        - Top 33%: Large dots (18-30px)
+        Uses square root scaling within each tier for smooth transitions.
         """
         if max_capacity == min_capacity:
             return 15
@@ -62,13 +63,13 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         # Normalize to 0-1
         normalized = (capacity - min_capacity) / (max_capacity - min_capacity)
         
-        # Logarithmic scaling for better visual separation
-        log_scaled = math.log(1 + normalized * 9) / math.log(10)  # 0-1 range
+        # Square root scaling for better visual separation
+        sqrt_scaled = math.sqrt(normalized)
         
-        # Map to pixel range: 6-40px
-        return 6 + (log_scaled * 34)
+        # Map to pixel range: 8-30px with clear size differences
+        return 8 + (sqrt_scaled * 22)
     
-    df['radius'] = df['capacity_mw'].apply(proper_radius_scaling)
+    df['radius'] = df['capacity_mw'].apply(percentile_radius_scaling)
     
     # CRITICAL FIX #3: TAB color scheme (Red for large, Navy for small) - NOT GREEN!
     def get_project_color(capacity):
@@ -87,26 +88,20 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
     
     df['color'] = df['capacity_mw'].apply(get_project_color)
     
-    # CRITICAL FIX #4: Enhanced tooltip with project details
+    # CRITICAL FIX #4: Enhanced tooltip with project name (like generation map)
     tooltip = {
-        "html": """
-        <b>{project_name}</b><br/>
-        <b>Capacity:</b> {capacity_mw} MW<br/>
-        <b>Fuel:</b> {fuel_type}<br/>
-        <b>County:</b> {county}<br/>
-        <b>Status:</b> {interconnection_status}
-        """,
+        "html": "<b>{project_name}</b><br/>Capacity: {capacity_mw} MW<br/>Fuel: {fuel_type}<br/>County: {county}",
         "style": {
             "backgroundColor": "white",
-            "color": "#1B365D",
-            "fontSize": "13px",
+            "color": "black",
+            "fontSize": "14px",
             "borderRadius": "6px",
-            "padding": "10px",
-            "boxShadow": "0 2px 8px rgba(0,0,0,0.2)"
+            "padding": "8px 12px",
+            "boxShadow": "0 2px 8px rgba(0,0,0,0.15)"
         }
     }
     
-    # Create scatterplot layer with white outlines
+    # Create scatterplot layer with white outlines and hover support
     layer = pdk.Layer(
         'ScatterplotLayer',
         df,
@@ -114,15 +109,16 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         get_color='color',
         get_radius='radius',
         radius_scale=1,
-        radius_min_pixels=4,
-        radius_max_pixels=50,
+        radius_min_pixels=6,        # Slightly larger min for visibility
+        radius_max_pixels=45,       # Slightly smaller max for proportion
         pickable=True,
         auto_highlight=True,
         get_line_color=[255, 255, 255, 180],  # White outline for visibility
         stroked=True,
         filled=True,
         line_width_min_pixels=1,
-        opacity=0.85
+        line_width_max_pixels=2,
+        opacity=0.8
     )
     
     # CRITICAL FIX #5: Better viewport - centered on West Texas where projects cluster
@@ -136,11 +132,12 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         max_zoom=7.0,        # Allow zoom for detailed inspection
     )
     
-    # CRITICAL FIX: Remove tooltip from pdk.Deck (type error) - handled by st.pydeck_chart instead
+    # Return deck with tooltip (like generation map)
     return pdk.Deck(
         layers=[layer],
         initial_view_state=view_state,
         map_style='mapbox://styles/mapbox/light-v10',
+        tooltip=tooltip,  # type: ignore
         views=[pdk.View(type='MapView', controller=True)]  # Enable pan/zoom for queue
     )
 
@@ -270,8 +267,8 @@ def render():
             """, unsafe_allow_html=True)
         
         st.markdown("""
-        - **Dot Size**: Proportional to project capacity (MW) using logarithmic scaling
-        - **Hover**: View detailed project information
+        - **Dot Size**: Proportional to project capacity (MW) - larger projects have bigger dots
+        - **Hover**: View project name, capacity, fuel type, and county
         - **Pan/Zoom**: Enabled for detailed inspection
         """)
         

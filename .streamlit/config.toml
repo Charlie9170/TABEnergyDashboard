@@ -1,11 +1,11 @@
 # Streamlit Configuration - TAB Energy Dashboard (Light theme)
 
 [theme]
-base = "light"
-primaryColor = "#1B365D"          # TAB Navy
-backgroundColor = "#FFFFFF"       # White page background
-secondaryBackgroundColor = "#F5F7FA" # Subtle panel background
-textColor = "#0B1939"             # Deep navy text
+# DO NOT SET base - let custom colors take full control
+primaryColor = "#C8102E"              # TAB Red (buttons, links, accents)
+backgroundColor = "#FFFFFF"            # White background (main content)
+secondaryBackgroundColor = "#F5F7FA"  # Light gray (cards, sidebar, metrics)
+textColor = "#1B365D"                 # TAB Navy (primary text)
 font = "sans serif"
 
 [server]
