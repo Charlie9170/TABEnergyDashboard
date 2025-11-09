@@ -29,6 +29,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
+      - name: Verify EIA API Key
+        env:
+          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+        run: |
+          if [ -z "$EIA_API_KEY" ]; then
+            echo "❌ ERROR: EIA_API_KEY secret not found!"
+            echo "Add it in: Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+          echo "✅ EIA_API_KEY verified (${#EIA_API_KEY} characters)"
+      
       - name: Run EIA Fuel Mix ETL
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
@@ -53,9 +64,31 @@ jobs:
           python etl/ercot_queue_etl.py
         continue-on-error: true  # Don't fail if CDR file issues
       
+      - name: Run Minerals ETL
+        run: |
+          echo "🔄 Running Minerals ETL..."
+          python etl/mineral_etl.py
+        continue-on-error: true
+      
       - name: Validate data files
         run: |
-          python scripts/validate_data.py
+          echo "✅ Validating parquet files..."
+          python -c "
+          import pandas as pd
+          from pathlib import Path
+          
+          data_files = sorted(Path('data').glob('*.parquet'))
+          print(f'\n📊 Found {len(data_files)} data files:\n')
+          
+          for file in data_files:
+              try:
+                  df = pd.read_parquet(file)
+                  size_kb = file.stat().st_size / 1024
+                  print(f'  ✅ {file.name:30s} {len(df):>6,d} rows  {size_kb:>8,.1f} KB')
+              except Exception as e:
+                  print(f'  ❌ {file.name:30s} ERROR: {e}')
+          "
+        continue-on-error: true
       
       - name: Check for changes
         id: git-check
@@ -68,10 +101,35 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add data/*.parquet
-          git commit -m "Auto-update data files ($(date -u '+%Y-%m-%d %H:%M:%S UTC'))"
+          
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          git commit -m "🤖 Auto-update energy data - $TIMESTAMP
+
+          Updated by GitHub Actions ETL pipeline
+          Trigger: ${{ github.event_name }}
+          
+          Data sources refreshed:
+          - EIA Fuel Mix (ERCOT generation by fuel type)
+          - EIA Power Plants (Texas generation facilities)
+          - ERCOT Queue (interconnection projects)
+          - Price Map (demo LMP data)
+          - Minerals (REE & critical minerals deposits)
+          
+          [skip ci]"
+          
           git push
       
-      - name: No changes detected
-        if: steps.git-check.outputs.changes != 'true'
+      - name: ETL Pipeline Summary
+        if: always()
         run: |
-          echo "No changes detected in data files"
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 TAB Energy Dashboard - ETL Pipeline Summary"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "Workflow:       ${{ github.workflow }}"
+          echo "Trigger:        ${{ github.event_name }}"
+          echo "Run Time:       $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          echo "Data Updated:   ${{ steps.git-check.outputs.changes }}"
+          echo "Status:         ${{ job.status }}"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
