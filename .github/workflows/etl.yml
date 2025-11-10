@@ -117,6 +117,9 @@ jobs:
           echo "🔄 Running Minerals ETL..."
           python etl/mineral_etl.py
         continue-on-error: true
+        # Note: Polygon generation requires USGS MRDS shapefile
+        # Place shapefile at: ~/Downloads/Texas Lithium Shapefile/mrds-trim.shp
+        # ETL will gracefully skip polygon generation if shapefile not found
       
       - name: Validate data files
         run: |
