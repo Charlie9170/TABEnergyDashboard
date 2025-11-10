@@ -115,8 +115,9 @@ def load_manual_deposits(csv_path: str) -> pd.DataFrame:
     logger.info(f"Loading manual deposit data from {csv_path}")
     
     if not os.path.exists(csv_path):
-        logger.warning(f"Manual deposits CSV not found at {csv_path}")
-        logger.info("Creating empty DataFrame with expected schema")
+        logger.warning(f"⚠️  Manual deposits CSV not found at {csv_path}")
+        logger.info("   Using polygon data only (CSV is optional)")
+        logger.info("   To add manual deposits, create: data/manual_mineral_deposits.csv")
         return pd.DataFrame(columns=[
             'deposit_name', 'lat', 'lon', 'minerals', 'estimated_tonnage',
             'development_status', 'county', 'details'
@@ -408,34 +409,51 @@ def main():
         combined_df = manual_df  # For now, just use manual data
         
         if combined_df.empty:
-            logger.warning("⚠️  No deposit data found!")
-            logger.info("Create data/manual_mineral_deposits.csv to add deposit data")
-            logger.info("See documentation for required CSV format")
-            return False
+            logger.warning("⚠️  No manual deposit data found")
+            logger.info("   Continuing with polygon data only...")
+            # Create minimal valid output so dashboard doesn't break
+            empty_df = pd.DataFrame({
+                'deposit_name': ['Polygon Data Only'],
+                'lat': [31.0],
+                'lon': [-99.5],
+                'minerals': ['See polygon formations on map'],
+                'estimated_tonnage': [0],
+                'development_status': ['Discovery'],
+                'county': ['Multiple'],
+                'details': ['No manual CSV data - using USGS polygon formations'],
+                'color': [[27, 54, 93, 160]],
+                'radius': [2500],
+                'tooltip': ['Polygon Data Only\nMinerals: See polygon formations on map\nStatus: Discovery\nEst. Tonnage: 0 MT\nCounty: Multiple'],
+                'data_source': ['Polygon Only'],
+                'last_updated': [datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')]
+            })
+            atomic_write_parquet(empty_df, output_path)
+            logger.info("✅ Created placeholder mineral data (polygon formations still available)")
         
-        # Clean and validate data
-        logger.info("🧹 Cleaning and validating deposit data...")
-        clean_df = clean_and_validate_deposits(combined_df)
+        else:
+            # Clean and validate data
+            logger.info("🧹 Cleaning and validating deposit data...")
+            clean_df = clean_and_validate_deposits(combined_df)
         
-        if clean_df.empty:
-            logger.error("❌ No valid deposits after cleaning")
-            return False
+            if clean_df.empty:
+                logger.error("❌ No valid deposits after cleaning")
+                return False
         
-        # Add visualization columns
-        logger.info("🎨 Adding visualization attributes...")
-        final_df = add_visualization_columns(clean_df)
+            # Add visualization columns
+            logger.info("🎨 Adding visualization attributes...")
+            final_df = add_visualization_columns(clean_df)
         
-        # Add metadata
-        final_df['data_source'] = 'Manual CSV + GeoJSON'
-        final_df['last_updated'] = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')
+            # Add metadata
+            final_df['data_source'] = 'Manual CSV + GeoJSON'
+            final_df['last_updated'] = datetime.now(UTC).strftime('%Y-%m-%d %H:%M:%S UTC')
         
-        # Validate final schema
-        logger.info("✅ Validating final schema...")
-        validate_schema(final_df)
+            # Validate final schema
+            logger.info("✅ Validating final schema...")
+            validate_schema(final_df)
         
-        # Write output
-        logger.info("💾 Writing mineral data...")
-        atomic_write_parquet(final_df, output_path)
+            # Write output
+            logger.info("💾 Writing mineral data...")
+            atomic_write_parquet(final_df, output_path)
         
         # Generate polygon overlays from USGS shapefile
         logger.info("")
