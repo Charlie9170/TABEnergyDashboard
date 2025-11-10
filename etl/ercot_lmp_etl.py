@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 import logging
 import sys
+from typing import Optional
 
 # Setup logging
 logging.basicConfig(
@@ -46,12 +47,13 @@ ERCOT_ZONES = {
 }
 
 
-def fetch_ercot_realtime_spp() -> pd.DataFrame:
+def fetch_ercot_realtime_spp() -> Optional[pd.DataFrame]:
     """
     Fetch latest Settlement Point Prices from ERCOT public HTML page.
     
     Returns:
         DataFrame with columns: zone, zone_key, avg_price, lat, lon, interval_end, timestamp, last_updated
+        Returns None if data cannot be fetched
     """
     try:
         logger.info("Fetching real-time settlement point prices from ERCOT...")
@@ -68,8 +70,8 @@ def fetch_ercot_realtime_spp() -> pd.DataFrame:
         
         logger.info(f"Successfully fetched data ({len(response.content)} bytes)")
         
-        # Parse HTML table
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # Parse HTML table (BeautifulSoup accepts bytes directly)
+        soup = BeautifulSoup(response.content, 'html.parser')  # type: ignore
         table = soup.find('table', class_='tableStyle')
         
         if not table:
@@ -109,7 +111,9 @@ def fetch_ercot_realtime_spp() -> pd.DataFrame:
         for col in headers[2:]:  # Skip 'Oper Day' and 'Interval Ending'
             if col in ERCOT_ZONES:
                 try:
-                    price = float(latest_row[col])
+                    # Get scalar value from Series to avoid type checker warnings
+                    price_value = latest_row[col]
+                    price = float(price_value)  # type: ignore
                     zone_data.append({
                         'zone_key': col,
                         'zone': ERCOT_ZONES[col]['name'],
