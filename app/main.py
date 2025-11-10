@@ -17,6 +17,10 @@ Updated via robust ETL processes.
 import streamlit as st
 from pathlib import Path
 from typing import Any, Dict
+import sys
+
+# Add app directory to path for module imports
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Configure Plotly with TAB Design System
 try:
