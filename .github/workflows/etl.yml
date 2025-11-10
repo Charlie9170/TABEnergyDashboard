@@ -29,23 +29,61 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Verify EIA API Key
-        env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
+      - name: 🔍 Diagnostic - Check API Key Access
         run: |
-          if [ -z "$EIA_API_KEY" ]; then
-            echo "❌ ERROR: EIA_API_KEY secret not found!"
-            echo "Add it in: Settings > Secrets and variables > Actions"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔍 API Key Diagnostics"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          
+          # Check if secret exists (will be empty if not set)
+          SECRET_LENGTH="${#EIA_API_KEY_SECRET}"
+          
+          # Check if variable exists (will be empty if not set)
+          VARIABLE_LENGTH="${#EIA_API_KEY_VAR}"
+          
+          echo "Secret EIA_API_KEY length: $SECRET_LENGTH characters"
+          echo "Variable EIA_API_KEY length: $VARIABLE_LENGTH characters"
+          
+          # Determine which one to use
+          if [ -n "$EIA_API_KEY_SECRET" ]; then
+            echo "✅ Using EIA_API_KEY from SECRETS"
+            echo "   First 8 chars: ${EIA_API_KEY_SECRET:0:8}..."
+            echo "   Last 8 chars: ...${EIA_API_KEY_SECRET: -8}"
+          elif [ -n "$EIA_API_KEY_VAR" ]; then
+            echo "✅ Using EIA_API_KEY from VARIABLES"
+            echo "   First 8 chars: ${EIA_API_KEY_VAR:0:8}..."
+            echo "   Last 8 chars: ...${EIA_API_KEY_VAR: -8}"
+          else
+            echo "❌ ERROR: No EIA_API_KEY found in secrets or variables!"
+            echo ""
+            echo "To fix:"
+            echo "1. Go to Settings → Secrets and variables → Actions"
+            echo "2. Click 'Variables' tab"
+            echo "3. Add repository variable: EIA_API_KEY"
+            echo "4. Value: z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV"
             exit 1
           fi
-          echo "✅ EIA_API_KEY verified (${#EIA_API_KEY} characters)"
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        env:
+          EIA_API_KEY_SECRET: ${{ secrets.EIA_API_KEY }}
+          EIA_API_KEY_VAR: ${{ vars.EIA_API_KEY }}
       
       - name: Run EIA Fuel Mix ETL
-        env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
+          echo "🔄 Running EIA Fuel Mix ETL..."
+          # Use variable if secret not set
+          export EIA_API_KEY="${EIA_API_KEY_SECRET:-$EIA_API_KEY_VAR}"
+          if [ -z "$EIA_API_KEY" ]; then
+            echo "⚠️  Skipping - No API key available"
+            exit 0
+          fi
+          echo "✅ API key found: ${EIA_API_KEY:0:8}...${EIA_API_KEY: -8}"
           python etl/eia_fuelmix_etl.py
-        continue-on-error: true  # Don't fail entire workflow
+        env:
+          EIA_API_KEY_SECRET: ${{ secrets.EIA_API_KEY }}
+          EIA_API_KEY_VAR: ${{ vars.EIA_API_KEY }}
+        continue-on-error: true
       
       - name: Run Price Map ETL (demo data)
         run: |
@@ -53,11 +91,20 @@ jobs:
         continue-on-error: true  # Don't fail entire workflow
       
       - name: Run EIA Plants ETL (stub)
-        env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: |
+          echo "🔄 Running EIA Plants ETL..."
+          # Use variable if secret not set
+          export EIA_API_KEY="${EIA_API_KEY_SECRET:-$EIA_API_KEY_VAR}"
+          if [ -z "$EIA_API_KEY" ]; then
+            echo "⚠️  Skipping - No API key available"
+            exit 0
+          fi
+          echo "✅ API key found: ${EIA_API_KEY:0:8}...${EIA_API_KEY: -8}"
           python etl/eia_plants_etl.py
-        continue-on-error: true  # Don't fail entire workflow if this fails
+        env:
+          EIA_API_KEY_SECRET: ${{ secrets.EIA_API_KEY }}
+          EIA_API_KEY_VAR: ${{ vars.EIA_API_KEY }}
+        continue-on-error: true
       
       - name: Run Interconnection Queue ETL
         run: |

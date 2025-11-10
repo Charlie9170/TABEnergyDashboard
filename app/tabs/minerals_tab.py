@@ -120,20 +120,21 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
     center_lat = df['lat'].mean()
     center_lon = df['lon'].mean()
     
-    # Create deck with refined Texas view
+    # Create deck with locked Texas viewport (matching Generation tab)
     deck = pdk.Deck(
         layers=[layer],
         initial_view_state=pdk.ViewState(
-            latitude=center_lat,
-            longitude=center_lon,
-            zoom=5.8,              # Slightly more zoomed in for better detail
+            latitude=31.0,
+            longitude=-99.5,
+            zoom=4.7,
             pitch=0,
             bearing=0,
-            min_zoom=4.5,
-            max_zoom=10
+            min_zoom=4.7,
+            max_zoom=4.7
         ),
         tooltip=tooltip,  # type: ignore
-        map_style="mapbox://styles/mapbox/light-v10"
+        map_style="mapbox://styles/mapbox/light-v10",
+        views=[pdk.View(type='MapView', controller=False)]
     )
     
     return deck
@@ -141,155 +142,124 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
 
 def render_summary_cards(df: pd.DataFrame):
     """
-    Display summary statistics cards at the top of the tab.
+    Display summary statistics cards matching Generation tab style.
     
     Args:
         df: Deposits DataFrame
     """
     col1, col2, col3, col4 = st.columns(4)
     
+    total_tonnage = df['estimated_tonnage'].sum()
+    major_count = len(df[df['development_status'] == 'Major'])
+    counties = df['county'].nunique()
+    
     with col1:
-        st.metric(
-            label="Total Deposits",
-            value=f"{len(df):,}",
-            help="Total number of mineral deposits tracked"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Total Deposits</div>
+            <div class="metric-card-value">{len(df):,}</div>
+            <div class="metric-card-subtitle">REE & Critical Minerals</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col2:
-        major_count = len(df[df['development_status'] == 'Major'])
-        st.metric(
-            label="Major Development",
-            value=f"{major_count}",
-            help="Deposits in active major development"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Major Development</div>
+            <div class="metric-card-value">{major_count}</div>
+            <div class="metric-card-subtitle">Active Large-Scale Projects</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
-        total_tonnage = df['estimated_tonnage'].sum()
-        st.metric(
-            label="Est. Total Tonnage",
-            value=f"{total_tonnage:,.0f} MT",
-            help="Total estimated mineral tonnage (metric tons)"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Est. Total Tonnage</div>
+            <div class="metric-card-value">{total_tonnage:,.0f} MT</div>
+            <div class="metric-card-subtitle">Combined Mineral Resources</div>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col4:
-        counties = df['county'].nunique()
-        st.metric(
-            label="Counties",
-            value=f"{counties}",
-            help="Number of Texas counties with deposits"
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-card-title">Counties</div>
+            <div class="metric-card-value">{counties}</div>
+            <div class="metric-card-subtitle">Texas Deposit Locations</div>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def render_status_breakdown(df: pd.DataFrame):
     """
-    Display refined development status breakdown with professional design.
+    Display development status breakdown (simplified to match other tabs).
     
     Args:
         df: Deposits DataFrame
     """
-    st.markdown("### Development Status Breakdown")
+    st.subheader("Deposits by Development Status")
     
-    status_counts = df['development_status'].value_counts().sort_index()
+    status_counts = df['development_status'].value_counts()
     status_tonnage = df.groupby('development_status')['estimated_tonnage'].sum()
     
-    # Create columns for status breakdown
-    cols = st.columns(4)
+    # Create a simple dataframe for display
+    breakdown_df = pd.DataFrame({
+        'Status': status_counts.index,
+        'Count': status_counts.values,
+        'Tonnage (MT)': status_tonnage.values
+    })
     
-    for idx, (status, color) in enumerate(STATUS_COLORS_HEX.items()):
-        with cols[idx]:
-            count = status_counts.get(status, 0)
-            tonnage = status_tonnage.get(status, 0)
-            
-            # Professional card design with refined styling
+    # Add percentage column
+    total_count = breakdown_df['Count'].sum()
+    breakdown_df['Percentage'] = (breakdown_df['Count'] / total_count * 100).round(1)
+    
+    # Reorder to match standard order
+    status_order = ['Major', 'Early', 'Exploratory', 'Discovery']
+    breakdown_df['Status'] = pd.Categorical(breakdown_df['Status'], categories=status_order, ordered=True)
+    breakdown_df = breakdown_df.sort_values('Status')
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Simple bar chart like Generation tab
+        st.bar_chart(breakdown_df.set_index('Status')['Count'])
+    
+    with col2:
+        # Data table with color indicators
+        st.dataframe(breakdown_df, hide_index=True)
+
+
+def render_minerals_legend(df: pd.DataFrame):
+    """Display clean legend for mineral deposit status colors (matching Generation tab style)."""
+    st.markdown("**Map Legend:**")
+    
+    status_counts = df['development_status'].value_counts()
+    status_tonnage = df.groupby('development_status')['estimated_tonnage'].sum()
+    
+    # Create color legend in columns
+    cols = st.columns(min(4, len(STATUS_COLORS_HEX)))
+    
+    for i, (status, color_hex) in enumerate(STATUS_COLORS_HEX.items()):
+        col_idx = i % len(cols)
+        count = status_counts.get(status, 0)
+        tonnage = status_tonnage.get(status, 0)
+        
+        with cols[col_idx]:
             st.markdown(
-                f"""
-                <div style="
-                    padding: 18px;
-                    border-radius: 10px;
-                    border-left: 5px solid {color};
-                    background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
-                    margin-bottom: 10px;
-                    box-shadow: 0 2px 8px rgba(27, 54, 93, 0.08);
-                    transition: transform 0.2s ease;
-                ">
-                    <div style="
-                        font-weight: 600; 
-                        color: #64748B; 
-                        font-size: 12px; 
-                        text-transform: uppercase;
-                        letter-spacing: 0.5px;
-                        margin-bottom: 8px;
-                    ">
-                        {status}
-                    </div>
-                    <div style="
-                        font-size: 32px; 
-                        font-weight: 700; 
-                        color: {color};
-                        line-height: 1;
-                        margin-bottom: 8px;
-                    ">
-                        {count}
-                    </div>
-                    <div style="
-                        font-size: 13px; 
-                        color: #64748B;
-                        font-weight: 500;
-                    ">
-                        {tonnage:,.0f} MT
-                    </div>
+                f'''
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                    <div style="width: 12px; height: 12px; background-color: {color_hex}; 
+                                border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
+                    <span style="font-size: 13px;"><b>{status}</b>: {count} deposits ({tonnage:,.0f} MT)</span>
                 </div>
-                """,
+                ''', 
                 unsafe_allow_html=True
             )
-
-
-def render_minerals_legend():
-    """Display refined legend for mineral deposit status colors."""
-    st.markdown("### Map Legend")
     
-    legend_html = """
-    <div style='
-        padding: 16px; 
-        background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%); 
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(27, 54, 93, 0.08);
-        border: 1px solid #E2E8F0;
-    '>
-    """
-    
-    for status, color_hex in STATUS_COLORS_HEX.items():
-        legend_html += f"""
-        <div style='margin: 10px 0; display: flex; align-items: center;'>
-            <div style='
-                width: 14px; 
-                height: 14px; 
-                background-color: {color_hex}; 
-                border-radius: 50%; 
-                margin-right: 12px;
-                border: 2px solid rgba(255, 255, 255, 0.9);
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-            '></div>
-            <span style='color: #1B365D; font-weight: 600; font-size: 13px;'>{status}</span>
-        </div>
-        """
-    
-    legend_html += """
-    <div style='
-        margin-top: 14px; 
-        padding-top: 12px; 
-        border-top: 1px solid #E2E8F0;
-        font-size: 11px;
-        color: #64748B;
-        line-height: 1.5;
-    '>
-        <div><strong>Marker size</strong> indicates estimated tonnage</div>
-        <div style='margin-top: 4px;'><strong>Hover</strong> for deposit details</div>
-    </div>
-    </div>
-    """
-    
-    st.markdown(legend_html, unsafe_allow_html=True)
+    st.markdown("""
+    - 📏 **Point Size**: Proportional to estimated tonnage (MT)  
+    - 📍 **Hover**: View detailed deposit information
+    """)
 
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):
@@ -300,7 +270,7 @@ def render_deposits_table(df: pd.DataFrame, filters: dict):
         df: Deposits DataFrame
         filters: Dictionary of active filters
     """
-    st.markdown("### Deposit Details")
+    st.subheader("Deposit Details")
     
     # Apply filters
     filtered_df = df.copy()
@@ -347,20 +317,8 @@ def render_deposits_table(df: pd.DataFrame, filters: dict):
 def render():
     """Main render function for Minerals & Critical Minerals tab."""
     
-    # Tab header
-    st.markdown(
-        """
-        <div style="padding: 20px 0; border-bottom: 2px solid #C8102E; margin-bottom: 30px;">
-            <h1 style="color: #1B365D; margin: 0; font-size: 32px; font-weight: 700;">
-                Minerals & Critical Minerals
-            </h1>
-            <p style="color: #64748B; margin: 8px 0 0 0; font-size: 16px;">
-                Texas Rare Earth Elements (REEs) & Critical Minerals Development
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # Minimal header - ultra compact (matching Generation tab)
+    st.markdown("### Minerals & Critical Minerals")
     
     # Load data
     try:
@@ -378,13 +336,8 @@ def render():
         
         st.markdown("---")
         
-        # Status breakdown
-        render_status_breakdown(df)
-        
-        st.markdown("---")
-        
         # Filter controls
-        st.markdown("### Filters")
+        st.subheader("Filter Deposits")
         col1, col2 = st.columns(2)
         
         with col1:
@@ -427,39 +380,46 @@ def render():
         
         st.markdown("---")
         
-        # Map section
-        col_map, col_legend = st.columns([3, 1])
+        # Map section - full width like Generation tab
+        st.subheader("Interactive Deposit Map")
         
-        with col_map:
-            st.markdown("### Deposit Locations")
-            
-            if not map_df.empty:
-                deck = create_minerals_map(map_df)
-                if deck:
-                    st.pydeck_chart(deck)
-                else:
-                    st.error("Could not create map visualization")
+        if not map_df.empty:
+            deck = create_minerals_map(map_df)
+            if deck:
+                st.pydeck_chart(deck, height=500, use_container_width=True)
             else:
-                st.info("No deposits match the selected filters")
+                st.error("Could not create map visualization")
+        else:
+            st.info("No deposits match the selected filters")
         
-        with col_legend:
-            render_minerals_legend()
+        # Data status indicator
+        st.success(f"**Live Data**: Texas Mineral Deposits Database - {len(map_df)} deposits from manual curation & geological surveys")
+        
+        # Enhanced legend with colors
+        render_minerals_legend(map_df)
+        
+        st.markdown("---")
+        
+        # Status breakdown below map (simplified)
+        render_status_breakdown(df)
         
         st.markdown("---")
         
         # Deposits table
         render_deposits_table(df, filters)
         
+        # Data Export Section (matching Generation tab)
         st.markdown("---")
-        
-        # Export functionality
-        st.markdown("### Export Data")
-        create_download_button(
-            df[['deposit_name', 'minerals', 'development_status', 'estimated_tonnage', 
-                'county', 'lat', 'lon', 'details']],
-            filename_prefix="texas_mineral_deposits",
-            label="Download Deposits Data (CSV)"
-        )
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Mineral Deposits Data**")
+        with col2:
+            create_download_button(
+                df=df[['deposit_name', 'minerals', 'development_status', 'estimated_tonnage', 
+                       'county', 'lat', 'lon', 'details']],
+                filename_prefix="texas_mineral_deposits",
+                label="Download Deposits Data"
+            )
         
         # Data source footer
         last_updated = get_last_updated(df)
