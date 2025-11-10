@@ -39,12 +39,6 @@ def render():
             st.code("python etl/ercot_lmp_etl.py", language="bash")
             return
         
-        # Real-time data indicator
-        if 'last_updated' in df.columns:
-            last_update = pd.to_datetime(df['last_updated'].iloc[0])
-            minutes_ago = (datetime.now() - last_update).total_seconds() / 60
-            st.success(f"**Live Data**: ERCOT Real-Time LMP - Updated {minutes_ago:.0f} minutes ago")
-        
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
         
@@ -120,6 +114,14 @@ def render():
             """, unsafe_allow_html=True)
         
         st.markdown("")  # Spacing
+        
+        # Real-time data indicator - placed below metrics
+        if 'last_updated' in df.columns:
+            last_update = pd.to_datetime(df['last_updated'].iloc[0])
+            minutes_ago = (datetime.now() - last_update).total_seconds() / 60
+            st.success(f"**Live Data**: ERCOT Real-Time LMP - Updated {minutes_ago:.0f} minutes ago")
+        
+        st.markdown("---")
         
         # Texas-focused locked viewport
         view_state = pdk.ViewState(

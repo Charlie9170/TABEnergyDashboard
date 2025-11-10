@@ -33,15 +33,16 @@ DATA_DIR.mkdir(exist_ok=True)
 
 # ERCOT Zones with coordinates (for map visualization)
 # These correspond to the columns in ERCOT's real-time SPP table
+# Coordinates optimized for better visual spacing on map
 ERCOT_ZONES = {
-    'HB_NORTH': {'name': 'North (Dallas)', 'lat': 33.2, 'lon': -96.8},
-    'HB_HOUSTON': {'name': 'Houston', 'lat': 29.7, 'lon': -95.3},
-    'HB_SOUTH': {'name': 'South (Corpus/Laredo)', 'lat': 28.0, 'lon': -99.0},
-    'HB_WEST': {'name': 'West (Odessa/Midland)', 'lat': 31.5, 'lon': -102.0},
-    'LZ_SOUTH': {'name': 'South Central (Austin)', 'lat': 30.3, 'lon': -97.7},
-    'LZ_NORTH': {'name': 'East (Tyler/Longview)', 'lat': 32.3, 'lon': -94.7},
-    'HB_PAN': {'name': 'Panhandle (Amarillo)', 'lat': 35.2, 'lon': -101.8},
-    'HB_BUSAVG': {'name': 'Grid Average', 'lat': 31.0, 'lon': -99.5},
+    'HB_NORTH': {'name': 'North (Dallas)', 'lat': 33.0, 'lon': -96.5},
+    'HB_HOUSTON': {'name': 'Houston', 'lat': 29.5, 'lon': -95.0},
+    'HB_SOUTH': {'name': 'South (Corpus/Laredo)', 'lat': 27.5, 'lon': -98.5},
+    'HB_WEST': {'name': 'West (Odessa/Midland)', 'lat': 31.8, 'lon': -102.5},
+    'LZ_SOUTH': {'name': 'South Central (Austin)', 'lat': 30.0, 'lon': -97.5},
+    'LZ_NORTH': {'name': 'East (Tyler/Longview)', 'lat': 32.5, 'lon': -94.5},
+    'HB_PAN': {'name': 'Panhandle (Amarillo)', 'lat': 35.5, 'lon': -101.5},
+    'HB_BUSAVG': {'name': 'Grid Average', 'lat': 31.0, 'lon': -100.0},
 }
 
 
