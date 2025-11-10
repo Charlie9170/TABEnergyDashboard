@@ -1,0 +1,306 @@
+"""
+ERCOT Real-Time LMP ETL Script
+
+Fetches real-time Locational Marginal Prices (LMP) from ERCOT Public API.
+Data updates every 5 minutes from ERCOT. This script aggregates 4000+ settlement 
+points to 8 geographic zones for visualization.
+
+Data Source: ERCOT Real-Time Settlement Point Prices (Public, Free)
+Update Frequency: Every 5 minutes (from ERCOT)
+Auto-Update: Configured to run every 15 minutes via GitHub Actions
+
+Author: TAB Energy Dashboard
+Date: 2025-11-10
+"""
+
+import requests
+import pandas as pd
+import xml.etree.ElementTree as ET
+from datetime import datetime
+from pathlib import Path
+import logging
+import sys
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Data directory
+DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+# ERCOT Weather Zones with coordinates (for map visualization)
+ERCOT_ZONES = {
+    'NORTH': {
+        'name': 'North',
+        'lat': 33.2,
+        'lon': -96.8,
+        'keywords': ['LZ_NORTH', 'NORTH_HUB', '_NORTH_']
+    },
+    'HOUSTON': {
+        'name': 'Houston',
+        'lat': 29.7,
+        'lon': -95.3,
+        'keywords': ['LZ_HOUSTON', 'HB_HOUSTON', '_HOUSTON_']
+    },
+    'SOUTH': {
+        'name': 'South',
+        'lat': 28.0,
+        'lon': -99.0,
+        'keywords': ['LZ_SOUTH', 'HB_SOUTH', '_SOUTH_']
+    },
+    'WEST': {
+        'name': 'West',
+        'lat': 31.5,
+        'lon': -102.0,
+        'keywords': ['LZ_WEST', 'HB_WEST', '_WEST_']
+    },
+    'SOUTH_CENTRAL': {
+        'name': 'South Central',
+        'lat': 30.3,
+        'lon': -97.7,
+        'keywords': ['LZ_SCENT', 'LZ_SOUTH_CENTRAL', 'SCENT']
+    },
+    'EAST': {
+        'name': 'East',
+        'lat': 32.3,
+        'lon': -94.7,
+        'keywords': ['LZ_EAST', 'HB_PAN', 'EAST_']
+    },
+    'FAR_WEST': {
+        'name': 'Far West',
+        'lat': 31.8,
+        'lon': -106.4,
+        'keywords': ['LZ_FWEST', 'FAR_WEST', 'FWEST']
+    },
+    'PANHANDLE': {
+        'name': 'Panhandle',
+        'lat': 35.2,
+        'lon': -101.8,
+        'keywords': ['LZ_PANHANDLE', 'PANHANDLE']
+    }
+}
+
+
+def fetch_ercot_realtime_spp() -> pd.DataFrame:
+    """
+    Fetch latest Settlement Point Prices from ERCOT public API.
+    
+    ERCOT publishes real-time SPP data every 5 minutes in XML format.
+    This is the same data used for market settlements - free and public.
+    
+    Returns:
+        DataFrame with settlement point prices
+    """
+    try:
+        logger.info("Fetching real-time settlement point prices from ERCOT...")
+        
+        # ERCOT Real-Time SPP endpoint (updated every 5 minutes)
+        url = "https://www.ercot.com/content/cdr/html/real_time_spp"
+        
+        headers = {
+            'User-Agent': 'TAB-Energy-Dashboard/1.0'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        
+        logger.info(f"Successfully fetched data ({len(response.content)} bytes)")
+        
+        # Parse XML
+        root = ET.fromstring(response.content)
+        
+        prices = []
+        for point in root.findall('.//SETTLEMENT_POINT'):
+            try:
+                prices.append({
+                    'location': point.find('SETTLEMENT_POINT_NAME').text,
+                    'price_per_mwh': float(point.find('SETTLEMENT_POINT_PRICE').text),
+                    'timestamp': point.find('DELIVERY_DATE').text,
+                    'interval_end': point.find('INTERVAL_END').text
+                })
+            except (AttributeError, ValueError, TypeError) as e:
+                # Skip malformed entries
+                continue
+        
+        if not prices:
+            logger.error("No valid settlement point data found in response")
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(prices)
+        logger.info(f"Parsed {len(df)} settlement points")
+        
+        return df
+        
+    except requests.RequestException as e:
+        logger.error(f"Failed to fetch ERCOT data: {e}")
+        return pd.DataFrame()
+    except ET.ParseError as e:
+        logger.error(f"Failed to parse XML: {e}")
+        return pd.DataFrame()
+    except Exception as e:
+        logger.error(f"Unexpected error fetching ERCOT data: {e}")
+        return pd.DataFrame()
+
+
+def map_point_to_zone(location_name: str) -> str:
+    """
+    Map a settlement point name to an ERCOT weather zone.
+    
+    Args:
+        location_name: Settlement point name (e.g., 'LZ_HOUSTON', 'HB_NORTH')
+        
+    Returns:
+        Zone key (e.g., 'HOUSTON', 'NORTH') or 'OTHER'
+    """
+    location_upper = location_name.upper()
+    
+    for zone_key, zone_data in ERCOT_ZONES.items():
+        for keyword in zone_data['keywords']:
+            if keyword in location_upper:
+                return zone_key
+    
+    return 'OTHER'
+
+
+def aggregate_to_zones(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregate 4000+ settlement points to 8 ERCOT weather zones.
+    
+    This makes the map visualization readable and matches industry standard
+    practice for LMP reporting.
+    
+    Args:
+        df: DataFrame with individual settlement point prices
+        
+    Returns:
+        DataFrame with zone-level aggregated prices and coordinates
+    """
+    if df.empty:
+        logger.warning("No data to aggregate")
+        return pd.DataFrame()
+    
+    logger.info("Aggregating settlement points to weather zones...")
+    
+    # Map each point to a zone
+    df['zone'] = df['location'].apply(map_point_to_zone)
+    
+    # Remove 'OTHER' entries (miscellaneous points not in main zones)
+    df = df[df['zone'] != 'OTHER']
+    
+    # Aggregate prices by zone
+    zone_prices = []
+    
+    for zone_key, zone_data in ERCOT_ZONES.items():
+        zone_df = df[df['zone'] == zone_key]
+        
+        if len(zone_df) == 0:
+            continue
+        
+        zone_prices.append({
+            'zone': zone_data['name'],
+            'zone_key': zone_key,
+            'avg_price': zone_df['price_per_mwh'].mean(),
+            'min_price': zone_df['price_per_mwh'].min(),
+            'max_price': zone_df['price_per_mwh'].max(),
+            'median_price': zone_df['price_per_mwh'].median(),
+            'num_points': len(zone_df),
+            'lat': zone_data['lat'],
+            'lon': zone_data['lon'],
+            'timestamp': zone_df['timestamp'].iloc[0],
+            'interval_end': zone_df['interval_end'].iloc[0],
+            'last_updated': datetime.now().isoformat()
+        })
+    
+    result_df = pd.DataFrame(zone_prices)
+    
+    if not result_df.empty:
+        logger.info(f"Aggregated to {len(result_df)} zones:")
+        for _, row in result_df.iterrows():
+            logger.info(f"  {row['zone']:15s}: ${row['avg_price']:6.2f}/MWh (from {row['num_points']} points)")
+    
+    return result_df
+
+
+def save_to_parquet(df: pd.DataFrame) -> None:
+    """
+    Save LMP data to parquet file with atomic write.
+    
+    Uses temp file pattern to ensure data integrity.
+    
+    Args:
+        df: DataFrame with zone-level LMP data
+    """
+    if df.empty:
+        logger.error("Cannot save empty DataFrame")
+        return
+    
+    output_path = DATA_DIR / "price_map.parquet"
+    temp_path = DATA_DIR / "price_map.parquet.tmp"
+    
+    try:
+        # Write to temp file first
+        df.to_parquet(temp_path, index=False, engine='pyarrow')
+        
+        # Verify it can be read
+        pd.read_parquet(temp_path)
+        
+        # Atomic move
+        temp_path.replace(output_path)
+        
+        logger.info(f"✅ Saved {len(df)} zones to {output_path}")
+        logger.info(f"   File size: {output_path.stat().st_size / 1024:.1f} KB")
+        
+    except Exception as e:
+        logger.error(f"Failed to save parquet: {e}")
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
+
+
+def main():
+    """Main ETL execution."""
+    logger.info("=" * 60)
+    logger.info("ERCOT Real-Time LMP ETL - Starting")
+    logger.info("=" * 60)
+    
+    try:
+        # Step 1: Fetch settlement point prices
+        spp_df = fetch_ercot_realtime_spp()
+        
+        if spp_df.empty:
+            logger.error("❌ Failed to fetch ERCOT data")
+            sys.exit(1)
+        
+        # Step 2: Aggregate to zones
+        zone_df = aggregate_to_zones(spp_df)
+        
+        if zone_df.empty:
+            logger.error("❌ Failed to aggregate data to zones")
+            sys.exit(1)
+        
+        # Step 3: Save to parquet
+        save_to_parquet(zone_df)
+        
+        # Summary
+        logger.info("=" * 60)
+        logger.info("✅ ERCOT LMP ETL Complete")
+        logger.info(f"   Zones: {len(zone_df)}")
+        logger.info(f"   Avg Price: ${zone_df['avg_price'].mean():.2f}/MWh")
+        logger.info(f"   Price Range: ${zone_df['avg_price'].min():.2f} - ${zone_df['avg_price'].max():.2f}/MWh")
+        logger.info(f"   Timestamp: {zone_df['timestamp'].iloc[0]}")
+        logger.info("=" * 60)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"❌ ETL failed: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == "__main__":
+    exit_code = main()
+    sys.exit(exit_code)

@@ -85,10 +85,11 @@ jobs:
           EIA_API_KEY_VAR: ${{ vars.EIA_API_KEY }}
         continue-on-error: true
       
-      - name: Run Price Map ETL (demo data)
+      - name: Run ERCOT Real-Time LMP ETL
         run: |
-          python etl/price_map_etl.py
-        continue-on-error: true  # Don't fail entire workflow
+          echo "🔄 Running ERCOT Real-Time LMP ETL..."
+          python etl/ercot_lmp_etl.py
+        continue-on-error: true  # Don't fail if ERCOT API temporarily down
       
       - name: Run EIA Plants ETL (stub)
         run: |
