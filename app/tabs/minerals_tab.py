@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import math
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -35,6 +36,82 @@ STATUS_COLORS_HEX = {
     'Exploratory': '#F1C40F',    # Soft Gold
     'Discovery': '#1B365D'       # TAB Navy
 }
+
+
+def load_polygon_data() -> Optional[dict]:
+    """
+    Load mineral formation polygon data from GeoJSON file.
+    
+    Returns:
+        GeoJSON FeatureCollection dictionary or None if file doesn't exist
+    """
+    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
+    
+    if not polygon_path.exists():
+        return None
+    
+    try:
+        with open(polygon_path, 'r') as f:
+            geojson = json.load(f)
+        return geojson
+    except Exception as e:
+        st.warning(f"Could not load polygon data: {e}")
+        return None
+
+
+def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
+    """
+    Create polygon layer for mineral formations with transparent TAB colors.
+    
+    Args:
+        geojson_data: GeoJSON FeatureCollection with formation polygons
+        
+    Returns:
+        pydeck PolygonLayer or None if no data
+    """
+    if not geojson_data or 'features' not in geojson_data:
+        return None
+    
+    features = geojson_data['features']
+    if not features:
+        return None
+    
+    # Extract polygon data for pydeck
+    polygon_data = []
+    for feature in features:
+        if feature.get('geometry', {}).get('type') != 'Polygon':
+            continue
+        
+        coordinates = feature['geometry']['coordinates'][0]  # First ring
+        properties = feature.get('properties', {})
+        
+        polygon_data.append({
+            'polygon': coordinates,
+            'color': properties.get('color', [200, 200, 200, 64]),
+            'name': properties.get('name', 'Unknown'),
+            'status': properties.get('status', 'Unknown'),
+            'mineral_type': properties.get('mineral_type', 'Unknown')
+        })
+    
+    if not polygon_data:
+        return None
+    
+    # Create PolygonLayer with transparent fills and white borders
+    layer = pdk.Layer(
+        "PolygonLayer",
+        data=polygon_data,
+        get_polygon="polygon",
+        get_fill_color="color",
+        get_line_color=[255, 255, 255, 200],  # White borders
+        line_width_min_pixels=2,
+        pickable=True,
+        auto_highlight=True,
+        opacity=0.25,  # 25% opacity for formations
+        stroked=True,
+        filled=True
+    )
+    
+    return layer
 
 
 def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -120,9 +197,20 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
     center_lat = df['lat'].mean()
     center_lon = df['lon'].mean()
     
+    # Load polygon overlay data
+    layers = []
+    polygon_geojson = load_polygon_data()
+    if polygon_geojson:
+        polygon_layer = create_polygon_layer(polygon_geojson)
+        if polygon_layer:
+            layers.append(polygon_layer)  # Polygons first (underneath)
+    
+    # Add point layer on top
+    layers.append(layer)
+    
     # Create deck with locked Texas viewport (matching Generation tab)
     deck = pdk.Deck(
-        layers=[layer],
+        layers=layers,
         initial_view_state=pdk.ViewState(
             latitude=31.0,
             longitude=-99.5,
@@ -256,10 +344,22 @@ def render_minerals_legend(df: pd.DataFrame):
                 unsafe_allow_html=True
             )
     
-    st.markdown("""
-    - 📏 **Point Size**: Proportional to estimated tonnage (MT)  
-    - 📍 **Hover**: View detailed deposit information
-    """)
+    # Check if polygon data is available
+    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
+    has_polygons = polygon_path.exists()
+    
+    if has_polygons:
+        st.markdown("""
+        - �️ **Shaded Regions**: Formation boundaries (USGS MRDS data)  
+        - 📍 **Point Markers**: Specific deposit locations  
+        - 📏 **Point Size**: Proportional to estimated tonnage (MT)  
+        - 🖱️ **Hover**: View detailed deposit information
+        """)
+    else:
+        st.markdown("""
+        - �📏 **Point Size**: Proportional to estimated tonnage (MT)  
+        - 📍 **Hover**: View detailed deposit information
+        """)
 
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):

@@ -437,6 +437,20 @@ def main():
         logger.info("💾 Writing mineral data...")
         atomic_write_parquet(final_df, output_path)
         
+        # Generate polygon overlays from USGS shapefile
+        logger.info("")
+        logger.info("🗺️  Generating formation polygon overlays...")
+        try:
+            import convert_shapefile
+            polygon_success = convert_shapefile.main()
+            if polygon_success:
+                logger.info("✅ Polygon overlay generation successful")
+            else:
+                logger.warning("⚠️  Polygon generation skipped (shapefile not found)")
+        except Exception as e:
+            logger.warning(f"⚠️  Polygon generation failed: {e}")
+            logger.info("   Continuing with point data only...")
+        
         # Summary statistics
         logger.info("=" * 60)
         logger.info("🎉 MINERALS ETL COMPLETED SUCCESSFULLY")
