@@ -115,12 +115,6 @@ def render():
         
         st.markdown("")  # Spacing
         
-        # Real-time data indicator - placed below metrics
-        if 'last_updated' in df.columns:
-            last_update = pd.to_datetime(df['last_updated'].iloc[0])
-            minutes_ago = (datetime.now() - last_update).total_seconds() / 60
-            st.success(f"**Live Data**: ERCOT Real-Time LMP - Updated {minutes_ago:.0f} minutes ago")
-        
         st.markdown("---")
         
         # Texas-focused locked viewport
@@ -184,6 +178,47 @@ def render():
         )
         
         st.pydeck_chart(deck, height=500, use_container_width=True)
+        
+        # Real-time data indicator - MOVED BELOW MAP for better visibility
+        if 'last_updated' in df.columns:
+            last_update = pd.to_datetime(df['last_updated'].iloc[0])
+            minutes_ago = (datetime.now() - last_update).total_seconds() / 60
+            
+            # Styled live data badge with pulse animation
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+                border: 2px solid #4CAF50;
+                border-radius: 12px;
+                padding: 16px 24px;
+                text-align: center;
+                margin: 20px auto;
+                max-width: 500px;
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+            ">
+                <div style="font-size: 18px; font-weight: 600; color: #2E7D32; margin-bottom: 4px;">
+                    <span style="
+                        display: inline-block;
+                        width: 12px;
+                        height: 12px;
+                        background: #4CAF50;
+                        border-radius: 50%;
+                        margin-right: 8px;
+                        animation: pulse 2s infinite;
+                    "></span>
+                    Live Data
+                </div>
+                <div style="font-size: 14px; color: #558B2F;">
+                    ERCOT Real-Time LMP • Updated {int(minutes_ago)} minutes ago
+                </div>
+            </div>
+            <style>
+                @keyframes pulse {{
+                    0%, 100% {{ opacity: 1; transform: scale(1); }}
+                    50% {{ opacity: 0.6; transform: scale(1.1); }}
+                }}
+            </style>
+            """, unsafe_allow_html=True)
         
         # Data Export Section
         st.markdown("---")

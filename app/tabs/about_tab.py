@@ -124,11 +124,11 @@ def render():
         <div class="metric-card">
             <div class="metric-card-title">Real-Time Price Map</div>
             <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #64748B;">
-                <strong>Source:</strong> YesEnergy LMP API (Coming Soon)<br>
-                <strong>Dataset:</strong> Locational Marginal Prices<br>
-                <strong>Coverage:</strong> ERCOT settlement points<br>
-                <strong>Update Frequency:</strong> TBD with YesEnergy integration<br>
-                <strong>Status:</strong> Demo data (development)
+                <strong>Source:</strong> ERCOT Public API<br>
+                <strong>Dataset:</strong> Real-Time Settlement Point Prices (LMP)<br>
+                <strong>Coverage:</strong> ERCOT weather zones (8 zones)<br>
+                <strong>Update Frequency:</strong> Every 6 hours via automated ETL<br>
+                <strong>Status:</strong> 🟢 Live Data
             </div>
         </div>
         """, unsafe_allow_html=True)

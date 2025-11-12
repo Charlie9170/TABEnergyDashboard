@@ -19,12 +19,12 @@ DATA_SOURCES = {
         'url': 'https://www.eia.gov/opendata/',
     },
     'price_map': {
-        'status': 'demo',
-        'source': 'Demo Data (Development Only)',
-        'api': 'Static sample data with Texas coordinates',
-        'note': 'Replace with ERCOT CDR real-time LMP data',
-        'target_source': 'ERCOT Contour Data Records (CDR)',
-        'target_url': 'https://www.ercot.com/content/cdr/contours/rtmLmp.html',
+        'status': 'live',
+        'source': 'ERCOT Public API',
+        'api': 'Real-Time Settlement Point Prices (SPP)',
+        'coverage': 'ERCOT weather zones (8 zones)',
+        'update_frequency': 'Every 6 hours via automated ETL',
+        'url': 'https://www.ercot.com/mp/data-products/data-product-details?id=NP6-785-ER',
     },
     'generation': {
         'status': 'live',
