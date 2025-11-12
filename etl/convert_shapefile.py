@@ -167,14 +167,14 @@ def convert_usgs_shapefile_to_geojson(shapefile_path: str, simplify: bool = True
     skipped_count = 0
     
     for idx, shape_record in enumerate(sf.shapeRecords()):
-        shape = shape_record.shape
-        record = shape_record.record
+        shape = shape_record.shape  # type: ignore
+        record = shape_record.record  # type: ignore
         
         # Create properties dictionary from record
         properties = {}
         for i, field in enumerate(fields):
             try:
-                properties[field] = record[i]
+                properties[field] = record[i]  # type: ignore
             except IndexError:
                 properties[field] = None
         
@@ -193,19 +193,19 @@ def convert_usgs_shapefile_to_geojson(shapefile_path: str, simplify: bool = True
         
         # Convert shapefile geometry to GeoJSON
         try:
-            if shape.shapeType == 5:  # Polygon
-                coords = shape.points
+            if shape.shapeType == 5:  # type: ignore  # Polygon
+                coords = shape.points  # type: ignore
                 if simplify and len(coords) > 100:
-                    coords = simplify_polygon(coords)
+                    coords = simplify_polygon(coords)  # type: ignore
                 
                 # GeoJSON requires [lon, lat] format and closed rings
                 if coords[0] != coords[-1]:
-                    coords.append(coords[0])
+                    coords.append(coords[0])  # type: ignore
                 
                 coordinates = [coords]
                 
-            elif shape.shapeType == 1:  # Point - convert to small polygon (0.05 degree buffer)
-                lon, lat = shape.points[0]
+            elif shape.shapeType == 1:  # type: ignore  # Point - convert to small polygon (0.05 degree buffer)
+                lon, lat = shape.points[0][:2]  # type: ignore  # Take only lon, lat (ignore Z/M)
                 buffer = 0.05
                 coordinates = [[
                     [lon - buffer, lat - buffer],
@@ -215,15 +215,16 @@ def convert_usgs_shapefile_to_geojson(shapefile_path: str, simplify: bool = True
                     [lon - buffer, lat - buffer]
                 ]]
                 
-            elif shape.shapeType in [3, 13]:  # Polyline - buffer to polygon
-                coords = shape.points
+            elif shape.shapeType in [3, 13]:  # type: ignore  # Polyline - buffer to polygon
+                coords = shape.points  # type: ignore
                 if simplify and len(coords) > 50:
-                    coords = simplify_polygon(coords, tolerance=0.02)
+                    coords = simplify_polygon(coords, tolerance=0.02)  # type: ignore
                 
                 # Create buffered polygon around line
                 buffer = 0.02
                 buffered = []
-                for lon, lat in coords:
+                for point in coords:
+                    lon, lat = point[:2]  # type: ignore  # Take only lon, lat
                     buffered.extend([
                         [lon - buffer, lat - buffer],
                         [lon + buffer, lat + buffer]
@@ -233,7 +234,7 @@ def convert_usgs_shapefile_to_geojson(shapefile_path: str, simplify: bool = True
                 coordinates = [buffered]
                 
             else:
-                logger.warning(f"Skipping feature {idx}: Unsupported shape type {shape.shapeType}")
+                logger.warning(f"Skipping feature {idx}: Unsupported shape type {shape.shapeType}")  # type: ignore
                 skipped_count += 1
                 continue
             
@@ -241,7 +242,8 @@ def convert_usgs_shapefile_to_geojson(shapefile_path: str, simplify: bool = True
             # Check if any point is within Texas
             in_texas = False
             for coord_ring in coordinates:
-                for lon, lat in coord_ring:
+                for coord in coord_ring:
+                    lon, lat = coord[:2] if len(coord) > 2 else coord  # type: ignore  # Handle both 2D and 3D coords
                     if -106.65 <= lon <= -93.51 and 25.84 <= lat <= 36.50:
                         in_texas = True
                         break
