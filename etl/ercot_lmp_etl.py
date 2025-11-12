@@ -113,17 +113,24 @@ def fetch_ercot_realtime_spp() -> Optional[pd.DataFrame]:
                 try:
                     # Get scalar value from Series to avoid type checker warnings
                     price_value = latest_row[col]
-                    price = float(price_value)  # type: ignore
+                    price_mwh = float(price_value)  # type: ignore - LMP in $/MWh
+                    
+                    # Convert $/MWh to cents/kWh: divide by 10
+                    # (1 MWh = 1000 kWh, so $X/MWh = X/10 cents/kWh)
+                    price_cperkwh = price_mwh / 10.0
+                    
                     zone_data.append({
-                        'zone_key': col,
-                        'zone': ERCOT_ZONES[col]['name'],
-                        'avg_price': price,  # LMP in $/MWh
+                        'node_id': col,  # Zone key (matches schema)
+                        'region': ERCOT_ZONES[col]['name'],  # Zone name (matches schema)
+                        'price_cperkwh': price_cperkwh,  # Price in cents/kWh (matches schema)
                         'lat': ERCOT_ZONES[col]['lat'],
                         'lon': ERCOT_ZONES[col]['lon'],
+                        'last_updated': datetime.now().isoformat(),  # ISO format timestamp
+                        # Keep raw data for reference
+                        'zone_key': col,
+                        'avg_price': price_mwh,  # Original $/MWh for debugging
                         'interval_end': interval_end,
                         'oper_day': oper_day,
-                        'timestamp': datetime.now().isoformat(),
-                        'last_updated': datetime.now()
                     })
                 except (ValueError, KeyError) as e:
                     logger.warning(f"Skipping column {col}: {str(e)}")
@@ -132,12 +139,17 @@ def fetch_ercot_realtime_spp() -> Optional[pd.DataFrame]:
         result_df = pd.DataFrame(zone_data)
         logger.info(f"Processed {len(result_df)} zones with price data")
         
-        # Log sample prices
+        # Log sample prices in both formats
         if len(result_df) > 0:
-            avg_price = result_df['avg_price'].mean()
-            min_price = result_df['avg_price'].min()
-            max_price = result_df['avg_price'].max()
-            logger.info(f"Price range: ${min_price:.2f} - ${max_price:.2f}/MWh (avg: ${avg_price:.2f})")
+            avg_price_mwh = result_df['avg_price'].mean()
+            min_price_mwh = result_df['avg_price'].min()
+            max_price_mwh = result_df['avg_price'].max()
+            logger.info(f"Price range: ${min_price_mwh:.2f} - ${max_price_mwh:.2f}/MWh (avg: ${avg_price_mwh:.2f})")
+            
+            avg_price_cperkwh = result_df['price_cperkwh'].mean()
+            min_price_cperkwh = result_df['price_cperkwh'].min()
+            max_price_cperkwh = result_df['price_cperkwh'].max()
+            logger.info(f"             {min_price_cperkwh:.2f} - {max_price_cperkwh:.2f} ¢/kWh (avg: {avg_price_cperkwh:.2f})")
         
         return result_df
         
