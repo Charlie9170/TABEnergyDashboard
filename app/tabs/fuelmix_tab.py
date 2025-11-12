@@ -136,7 +136,11 @@ def render():
                 traceorder="normal"
             ),
             margin=dict(t=60, r=20, b=120, l=60),
-            xaxis=dict(title="Time (Central Time)", title_standoff=30),
+            xaxis=dict(
+                title="Time (Central Time)", 
+                title_standoff=30,
+                tickformat="%b %d"  # Show only "Nov 5" without year
+            ),
             yaxis=dict(title="Generation (MWh)", title_standoff=10),
         )
         
