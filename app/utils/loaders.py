@@ -61,17 +61,13 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
     # Check if file exists
     if not filepath.exists():
         error_msg = f"❌ Data file not found: `{filename}`"
-        if allow_empty:
-            st.warning(error_msg)
-            st.info("🔄 Displaying with empty data. Run ETL scripts to populate.")
-            # Return empty DataFrame with proper schema
-            schema = get_schema(dataset)
-            return pd.DataFrame(columns=list(schema.keys()))
-        else:
-            st.error(error_msg)
-            st.info(f"Expected schema for `{dataset}`: {get_schema(dataset)}")
-            st.info("Please run the ETL scripts to generate data files.")
-            st.stop()
+        st.warning(error_msg)
+        st.info("🔄 This tab will display with empty data. Other tabs remain functional.")
+        st.info("💡 Run ETL scripts to populate data:")
+        st.code(f"python etl/{dataset}_etl.py", language="bash")
+        # Return empty DataFrame with proper schema (NEVER use st.stop())
+        schema = get_schema(dataset)
+        return pd.DataFrame(columns=list(schema.keys()))
     
     try:
         # Load parquet file
@@ -79,14 +75,11 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         
         # Handle completely empty files
         if len(df) == 0:
-            if allow_empty:
-                st.warning(f"⚠️ Data file `{filename}` is empty")
-                st.info("🔄 Run ETL scripts to populate with fresh data.")
-                return df
-            else:
-                st.error(f"❌ Data file `{filename}` is empty")
-                st.info("Please run the ETL scripts to generate data.")
-                st.stop()
+            st.warning(f"⚠️ Data file `{filename}` is empty")
+            st.info("🔄 This tab will show no data. Run ETL scripts to populate.")
+            st.info("✅ Other tabs remain functional.")
+            # Return empty DataFrame (NEVER use st.stop())
+            return df
         
         # Normalize column names
         df = normalize_columns(df, dataset)
@@ -98,17 +91,20 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         missing, extra = validate(df, dataset)
         
         if missing:
-            error_msg = f"❌ Missing required columns in `{filename}`: {missing}"
+            # Graceful degradation: Show error but DON'T stop entire app
+            st.error(f"❌ Missing required columns in `{filename}`: {missing}")
+            st.info(f"Expected schema: {get_schema(dataset)}")
+            st.info(f"Found columns: {list(df.columns)}")
+            st.warning("⚠️ This tab may not function correctly. Other tabs remain available.")
+            
             if allow_empty:
-                st.warning(error_msg)
-                st.info(f"Expected: {get_schema(dataset)}")
                 st.info("🔄 Using partial data. Some features may not work.")
                 return df  # Return partial data
             else:
-                st.error(error_msg)
-                st.info(f"Expected schema: {get_schema(dataset)}")
-                st.info(f"Found columns: {list(df.columns)}")
-                st.stop()
+                # Return empty DataFrame with proper schema instead of st.stop()
+                st.info("📊 Returning empty dataset. Please run ETL scripts to fix.")
+                schema = get_schema(dataset)
+                return pd.DataFrame(columns=list(schema.keys()))
         
         if extra:
             # Extra columns are okay, just show info (only in debug mode)
@@ -118,25 +114,21 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         
     except pd.errors.ParserError as e:
         error_msg = f"❌ Corrupted data file `{filename}`: {str(e)}"
-        if allow_empty:
-            st.error(error_msg)
-            st.info("🔄 File may be corrupted. Try re-running ETL scripts.")
-            schema = get_schema(dataset)
-            return pd.DataFrame(columns=list(schema.keys()))
-        else:
-            st.error(error_msg)
-            st.stop()
+        st.error(error_msg)
+        st.info("🔄 File may be corrupted. Try re-running ETL scripts.")
+        st.warning("⚠️ This tab will show empty data. Other tabs remain functional.")
+        # Return empty DataFrame (NEVER use st.stop())
+        schema = get_schema(dataset)
+        return pd.DataFrame(columns=list(schema.keys()))
             
     except Exception as e:
         error_msg = f"❌ Unexpected error loading `{filename}`: {str(e)}"
-        if allow_empty:
-            st.error(error_msg)
-            st.info("🔄 Please check the data file and ETL scripts.")
-            schema = get_schema(dataset)
-            return pd.DataFrame(columns=list(schema.keys()))
-        else:
-            st.error(error_msg)
-            st.stop()
+        st.error(error_msg)
+        st.info("🔄 Please check the data file and ETL scripts.")
+        st.warning("⚠️ This tab will show empty data. Other tabs remain functional.")
+        # Return empty DataFrame (NEVER use st.stop())
+        schema = get_schema(dataset)
+        return pd.DataFrame(columns=list(schema.keys()))
 
 
 def get_last_updated(df: pd.DataFrame) -> str:

@@ -435,53 +435,49 @@ st.markdown(
 # Tab navigation using Streamlit tabs with error handling
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Fuel Mix", "Price Map", "Generation Map", "Interconnection Queue", "Minerals & Critical Minerals", "About & Data Sources"])
 
-with tab1:
+def safe_render_tab(render_func, tab_name: str):
+    """
+    Safely render a tab with comprehensive error handling.
+    Prevents one broken tab from crashing the entire dashboard.
+    """
     try:
-        fuelmix_tab.render()
+        render_func()
     except Exception as e:
-        st.error("❌ **Error Loading Fuel Mix Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+        st.error(f"❌ **Error Loading {tab_name} Tab**")
+        st.warning("⚠️ **Other tabs remain functional** - Try clicking a different tab above")
+        
+        with st.expander("🔍 **Technical Details** (for debugging)"):
+            st.code(str(e), language="python")
+            import traceback
+            st.code(traceback.format_exc(), language="python")
+        
+        st.info("""
+        **Troubleshooting Steps:**
+        1. Try refreshing the page (F5 or Cmd+R)
+        2. Clear browser cache and reload
+        3. Run ETL scripts to regenerate data
+        4. Check logs for detailed errors
+        
+        **Other tabs are still available!** Click a different tab above.
+        """)
+
+with tab1:
+    safe_render_tab(fuelmix_tab.render, "Fuel Mix")
 
 with tab2:
-    try:
-        price_map_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading Price Map Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+    safe_render_tab(price_map_tab.render, "Price Map")
 
 with tab3:
-    try:
-        generation_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading Generation Map Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+    safe_render_tab(generation_tab.render, "Generation Map")
 
 with tab4:
-    try:
-        queue_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading Interconnection Queue Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+    safe_render_tab(queue_tab.render, "Interconnection Queue")
 
 with tab5:
-    try:
-        minerals_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading Minerals & Critical Minerals Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+    safe_render_tab(minerals_tab.render, "Minerals & Critical Minerals")
 
 with tab6:
-    try:
-        about_tab.render()
-    except Exception as e:
-        st.error("❌ **Error Loading About Tab**")
-        st.error(f"Details: {str(e)}")
-        st.info("🔄 Try refreshing the page or contact support if the issue persists.")
+    safe_render_tab(about_tab.render, "About & Data Sources")
 
 # Global dashboard disclaimer and status
 render_dashboard_disclaimer()
