@@ -185,7 +185,7 @@ def render():
         # Update layout for Texas-focused map
         fig.update_layout(
             mapbox=dict(
-                style='open-street-map',  # Free, no API key required
+                style='carto-positron',  # Clean white background to match other tabs
                 center=dict(lat=31.0, lon=-99.5),
                 zoom=5.2
             ),
