@@ -28,15 +28,33 @@ def render():
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
     
-    # Detail Level Toggle
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        view_mode = st.radio(
-            "Detail Level",
-            ["Major Hubs (9)", "All Nodes (15)"],
-            horizontal=False,
-            help="Major Hubs: Fast, proven stable view (9 hub zones)\nAll Nodes: Includes 6 strategic detail nodes (15 total)"
-        )
+    # Add compact styling CSS
+    st.markdown("""
+    <style>
+        /* Compact radio buttons */
+        div[data-testid="stRadio"] > div {
+            gap: 1rem;
+        }
+        div[data-testid="stRadio"] label {
+            font-size: 0.9rem;
+            padding: 0.25rem 0.5rem;
+        }
+        /* Reduce spacing around map for maximum vertical space */
+        .element-container:has(iframe) {
+            margin-top: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Compact view mode toggle (single line, horizontal)
+    view_mode = st.radio(
+        "📍 View:",
+        ["Hubs (9)", "All Nodes (15)"],
+        horizontal=True,
+        key="price_map_view",
+        help="Hubs: 9 major zones (faster) | All Nodes: 15 settlement points (detailed)"
+    )
     
     try:
         # Load data with error handling
@@ -50,17 +68,13 @@ def render():
             return
         
         # Filter data based on view mode
-        if view_mode == "Major Hubs (9)":
+        if view_mode == "Hubs (9)":
             if 'tier' in df.columns:
                 df = df[df['tier'] == 'hub'].copy()
-                node_count_msg = f"📍 Showing {len(df)} major hub zones"
             else:
-                node_count_msg = f"📍 Showing {len(df)} zones (tier filter not available)"
-        else:  # All Nodes (15)
-            node_count_msg = f"📍 Showing all {len(df)} settlement points (9 hubs + 6 strategic nodes)"
-        
-        with col2:
-            st.info(node_count_msg)
+                # Fallback if tier column doesn't exist
+                pass
+        # else: show all nodes (no filtering needed)
         
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
