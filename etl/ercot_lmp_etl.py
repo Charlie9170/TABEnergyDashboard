@@ -37,13 +37,13 @@ DATA_DIR.mkdir(exist_ok=True)
 # Coordinates optimized for better visual spacing on map
 # 
 # TIER CLASSIFICATION:
-# - 'hub': Major load zones (8 zones) - DEFAULT view, fast rendering, proven stable
-# - 'strategic': Detailed strategic nodes (2 nodes) - OPTIONAL view for granularity
+# - 'hub': Major load zones (9 zones) - DEFAULT view, fast rendering, proven stable
+# - 'strategic': Detailed strategic nodes (6 nodes) - OPTIONAL view for granularity
 #
 # NOTE: Only settlement points that ERCOT actually publishes data for are included.
-# ERCOT provides real-time LMP data for 10 total nodes (8 hubs + 2 strategic).
+# ERCOT provides real-time LMP data for 15 total settlement points.
 ERCOT_ZONES = {
-    # ===== MAJOR HUBS (8 zones - TIER: hub) =====
+    # ===== MAJOR HUBS (9 zones - TIER: hub) =====
     'HB_NORTH': {'name': 'North (Dallas)', 'lat': 33.0, 'lon': -96.5, 'tier': 'hub'},
     'HB_HOUSTON': {'name': 'Houston', 'lat': 29.5, 'lon': -95.0, 'tier': 'hub'},
     'HB_SOUTH': {'name': 'South (Corpus/Laredo)', 'lat': 27.5, 'lon': -98.5, 'tier': 'hub'},
@@ -52,11 +52,16 @@ ERCOT_ZONES = {
     'LZ_NORTH': {'name': 'East (Tyler/Longview)', 'lat': 32.5, 'lon': -94.5, 'tier': 'hub'},
     'HB_PAN': {'name': 'Panhandle (Amarillo)', 'lat': 35.5, 'lon': -101.5, 'tier': 'hub'},
     'HB_BUSAVG': {'name': 'Grid Average', 'lat': 31.0, 'lon': -100.0, 'tier': 'hub'},
+    'HB_HUBAVG': {'name': 'Hub Average', 'lat': 31.0, 'lon': -99.5, 'tier': 'hub'},
     
-    # ===== STRATEGIC NODES (2 additional locations - TIER: strategic) =====
-    # These provide granular detail within major hub regions
+    # ===== STRATEGIC NODES (6 additional locations - TIER: strategic) =====
+    # These provide granular detail within major hub regions and utility territories
     'LZ_HOUSTON': {'name': 'Houston Central', 'lat': 29.76, 'lon': -95.37, 'tier': 'strategic'},
     'LZ_WEST': {'name': 'Midland', 'lat': 31.99, 'lon': -102.08, 'tier': 'strategic'},
+    'LZ_CPS': {'name': 'San Antonio (CPS Energy)', 'lat': 29.42, 'lon': -98.49, 'tier': 'strategic'},
+    'LZ_LCRA': {'name': 'Austin Area (LCRA)', 'lat': 30.20, 'lon': -98.00, 'tier': 'strategic'},
+    'LZ_AEN': {'name': 'Northeast Texas (AEP)', 'lat': 33.25, 'lon': -94.20, 'tier': 'strategic'},
+    'LZ_RAYBN': {'name': 'East Texas (Rayburn)', 'lat': 32.00, 'lon': -94.00, 'tier': 'strategic'},
 }
 
 

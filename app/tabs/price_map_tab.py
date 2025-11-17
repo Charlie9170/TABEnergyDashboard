@@ -33,9 +33,9 @@ def render():
     with col1:
         view_mode = st.radio(
             "Detail Level",
-            ["Major Hubs (8)", "All Nodes (10)"],
+            ["Major Hubs (9)", "All Nodes (15)"],
             horizontal=False,
-            help="Major Hubs: Fast, proven stable view (8 zones)\nAll Nodes: Includes strategic detail nodes (10 total)"
+            help="Major Hubs: Fast, proven stable view (9 hub zones)\nAll Nodes: Includes 6 strategic detail nodes (15 total)"
         )
     
     try:
@@ -50,14 +50,14 @@ def render():
             return
         
         # Filter data based on view mode
-        if view_mode == "Major Hubs (8)":
+        if view_mode == "Major Hubs (9)":
             if 'tier' in df.columns:
                 df = df[df['tier'] == 'hub'].copy()
                 node_count_msg = f"📍 Showing {len(df)} major hub zones"
             else:
                 node_count_msg = f"📍 Showing {len(df)} zones (tier filter not available)"
-        else:  # All Nodes (10)
-            node_count_msg = f"📍 Showing all {len(df)} settlement points (8 hubs + 2 strategic nodes)"
+        else:  # All Nodes (15)
+            node_count_msg = f"📍 Showing all {len(df)} settlement points (9 hubs + 6 strategic nodes)"
         
         with col2:
             st.info(node_count_msg)
