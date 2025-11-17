@@ -28,15 +28,17 @@ def render():
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
     
-    # Add compact styling CSS
+    # Professional styling for view toggle (Option A: Minimal Professional)
     st.markdown("""
     <style>
-        /* Compact radio buttons */
+        /* Professional view toggle styling */
         div[data-testid="stRadio"] > div {
             gap: 1rem;
         }
         div[data-testid="stRadio"] label {
-            font-size: 0.9rem;
+            font-size: 14px;
+            font-weight: 400;
+            color: #333333;
             padding: 0.25rem 0.5rem;
         }
         /* Reduce spacing around map for maximum vertical space */
@@ -44,17 +46,41 @@ def render():
             margin-top: 0.5rem;
             margin-bottom: 0.5rem;
         }
+        /* View toggle container styling */
+        .view-toggle-row {
+            padding: 12px 0;
+            margin-bottom: 16px;
+        }
+        .view-label {
+            color: #555555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        .view-description {
+            color: #777777;
+            font-size: 13px;
+            line-height: 1.4;
+        }
     </style>
     """, unsafe_allow_html=True)
     
-    # Compact view mode toggle (single line, horizontal)
-    view_mode = st.radio(
-        "📍 View:",
-        ["Hubs (9)", "All Nodes (15)"],
-        horizontal=True,
-        key="price_map_view",
-        help="Hubs: 9 major zones (faster) | All Nodes: 15 settlement points (detailed)"
-    )
+    # Professional single-line toggle (no emoji, clean typography)
+    col1, col2, col3 = st.columns([1.5, 3, 5])
+    with col1:
+        st.markdown('<span class="view-label">Display Mode:</span>', unsafe_allow_html=True)
+    with col2:
+        view_mode = st.radio(
+            "view_mode",
+            ["Major Hubs (9)", "All Settlement Points (15)"],
+            horizontal=True,
+            key="price_map_view",
+            label_visibility="collapsed"
+        )
+    with col3:
+        if "Major Hubs" in view_mode:
+            st.markdown('<span class="view-description">9 load zones • Faster rendering • Core coverage</span>', unsafe_allow_html=True)
+        else:
+            st.markdown('<span class="view-description">15 settlement points • Complete ERCOT coverage • 6 strategic nodes</span>', unsafe_allow_html=True)
     
     try:
         # Load data with error handling
@@ -68,13 +94,13 @@ def render():
             return
         
         # Filter data based on view mode
-        if view_mode == "Hubs (9)":
+        if view_mode == "Major Hubs (9)":
             if 'tier' in df.columns:
                 df = df[df['tier'] == 'hub'].copy()
             else:
                 # Fallback if tier column doesn't exist
                 pass
-        # else: show all nodes (no filtering needed)
+        # else: show all settlement points (no filtering needed)
         
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
