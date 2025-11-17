@@ -76,7 +76,6 @@ except Exception:
 
 # Import tab modules
 from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab, minerals_tab, about_tab
-from utils.data_sources import render_dashboard_disclaimer
 
 # Page configuration
 st.set_page_config(
@@ -478,9 +477,6 @@ with tab5:
 
 with tab6:
     safe_render_tab(about_tab.render, "About & Data Sources")
-
-# Global dashboard disclaimer and status
-render_dashboard_disclaimer()
 
 # Professional Footer matching txbiznews.com
 st.markdown("""

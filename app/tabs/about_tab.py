@@ -268,6 +268,12 @@ def render():
     
     st.markdown("---")
     
+    # Dashboard Status and Implementation Status (moved from global footer)
+    from utils.data_sources import render_dashboard_disclaimer
+    render_dashboard_disclaimer()
+    
+    st.markdown("---")
+    
     # Footer
     st.markdown("""
     <div style="text-align: center; color: #64748B; font-size: 0.85rem; padding: 1rem 0;">
