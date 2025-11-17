@@ -106,7 +106,7 @@ def render():
         
         with col2:
             min_price_val = df[price_col].min()
-            min_zone = df.loc[df[price_col].idxmin(), 'zone'] if 'zone' in df.columns else 'N/A'
+            min_zone = df.loc[df[price_col].idxmin(), 'region'] if 'region' in df.columns else 'N/A'
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Lowest Price</div>
@@ -117,7 +117,7 @@ def render():
         
         with col3:
             max_price_val = df[price_col].max()
-            max_zone = df.loc[df[price_col].idxmax(), 'zone'] if 'zone' in df.columns else 'N/A'
+            max_zone = df.loc[df[price_col].idxmax(), 'region'] if 'region' in df.columns else 'N/A'
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Highest Price</div>
@@ -150,14 +150,14 @@ def render():
             max_zoom=4.7,
         )
         
-        # Tooltip configuration for zone-level data
-        if 'zone' in df.columns:
-            tooltip_html = "<b>{zone}</b><br/>Avg: ${avg_price:.2f}/MWh"
-            if 'min_price' in df.columns:
-                tooltip_html += "<br/>Min: ${min_price:.2f} | Max: ${max_price:.2f}"
-            tooltip_html += "<br/>Level: {price_quantile}"
-        else:
-            tooltip_html = "<b>Zone Price</b><br/>Price: ${" + price_col + ":.2f}/MWh<br/>Level: {price_quantile}"
+        # Tooltip configuration - use actual column names from data
+        # Data has: region, avg_price ($/MWh), price_cperkwh (¢/kWh), price_quantile
+        tooltip_html = """
+        <b>{region}</b><br/>
+        Price: ${avg_price:.2f}/MWh<br/>
+        ({price_cperkwh:.2f} ¢/kWh)<br/>
+        Level: {price_quantile}
+        """
         
         tooltip = {
             "html": tooltip_html,
