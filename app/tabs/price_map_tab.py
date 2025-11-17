@@ -28,6 +28,16 @@ def render():
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
     
+    # Detail Level Toggle
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        view_mode = st.radio(
+            "Detail Level",
+            ["Major Hubs (8)", "All Nodes (10)"],
+            horizontal=False,
+            help="Major Hubs: Fast, proven stable view (8 zones)\nAll Nodes: Includes strategic detail nodes (10 total)"
+        )
+    
     try:
         # Load data with error handling
         df = load_parquet("price_map.parquet", "price_map", allow_empty=True)
@@ -38,6 +48,19 @@ def render():
             st.info("Run the ETL script to fetch real-time ERCOT LMP data.")
             st.code("python etl/ercot_lmp_etl.py", language="bash")
             return
+        
+        # Filter data based on view mode
+        if view_mode == "Major Hubs (8)":
+            if 'tier' in df.columns:
+                df = df[df['tier'] == 'hub'].copy()
+                node_count_msg = f"📍 Showing {len(df)} major hub zones"
+            else:
+                node_count_msg = f"📍 Showing {len(df)} zones (tier filter not available)"
+        else:  # All Nodes (10)
+            node_count_msg = f"📍 Showing all {len(df)} settlement points (8 hubs + 2 strategic nodes)"
+        
+        with col2:
+            st.info(node_count_msg)
         
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
