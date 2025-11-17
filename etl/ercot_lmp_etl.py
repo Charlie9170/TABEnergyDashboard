@@ -35,15 +35,28 @@ DATA_DIR.mkdir(exist_ok=True)
 # ERCOT Zones with coordinates (for map visualization)
 # These correspond to the columns in ERCOT's real-time SPP table
 # Coordinates optimized for better visual spacing on map
+# 
+# TIER CLASSIFICATION:
+# - 'hub': Major load zones (8 zones) - DEFAULT view, fast rendering, proven stable
+# - 'strategic': Detailed strategic nodes (2 nodes) - OPTIONAL view for granularity
+#
+# NOTE: Only settlement points that ERCOT actually publishes data for are included.
+# ERCOT provides real-time LMP data for 10 total nodes (8 hubs + 2 strategic).
 ERCOT_ZONES = {
-    'HB_NORTH': {'name': 'North (Dallas)', 'lat': 33.0, 'lon': -96.5},
-    'HB_HOUSTON': {'name': 'Houston', 'lat': 29.5, 'lon': -95.0},
-    'HB_SOUTH': {'name': 'South (Corpus/Laredo)', 'lat': 27.5, 'lon': -98.5},
-    'HB_WEST': {'name': 'West (Odessa/Midland)', 'lat': 31.8, 'lon': -102.5},
-    'LZ_SOUTH': {'name': 'South Central (Austin)', 'lat': 30.0, 'lon': -97.5},
-    'LZ_NORTH': {'name': 'East (Tyler/Longview)', 'lat': 32.5, 'lon': -94.5},
-    'HB_PAN': {'name': 'Panhandle (Amarillo)', 'lat': 35.5, 'lon': -101.5},
-    'HB_BUSAVG': {'name': 'Grid Average', 'lat': 31.0, 'lon': -100.0},
+    # ===== MAJOR HUBS (8 zones - TIER: hub) =====
+    'HB_NORTH': {'name': 'North (Dallas)', 'lat': 33.0, 'lon': -96.5, 'tier': 'hub'},
+    'HB_HOUSTON': {'name': 'Houston', 'lat': 29.5, 'lon': -95.0, 'tier': 'hub'},
+    'HB_SOUTH': {'name': 'South (Corpus/Laredo)', 'lat': 27.5, 'lon': -98.5, 'tier': 'hub'},
+    'HB_WEST': {'name': 'West (Odessa/Midland)', 'lat': 31.8, 'lon': -102.5, 'tier': 'hub'},
+    'LZ_SOUTH': {'name': 'South Central (Austin)', 'lat': 30.0, 'lon': -97.5, 'tier': 'hub'},
+    'LZ_NORTH': {'name': 'East (Tyler/Longview)', 'lat': 32.5, 'lon': -94.5, 'tier': 'hub'},
+    'HB_PAN': {'name': 'Panhandle (Amarillo)', 'lat': 35.5, 'lon': -101.5, 'tier': 'hub'},
+    'HB_BUSAVG': {'name': 'Grid Average', 'lat': 31.0, 'lon': -100.0, 'tier': 'hub'},
+    
+    # ===== STRATEGIC NODES (2 additional locations - TIER: strategic) =====
+    # These provide granular detail within major hub regions
+    'LZ_HOUSTON': {'name': 'Houston Central', 'lat': 29.76, 'lon': -95.37, 'tier': 'strategic'},
+    'LZ_WEST': {'name': 'Midland', 'lat': 31.99, 'lon': -102.08, 'tier': 'strategic'},
 }
 
 
@@ -125,6 +138,7 @@ def fetch_ercot_realtime_spp() -> Optional[pd.DataFrame]:
                         'price_cperkwh': price_cperkwh,  # Price in cents/kWh (matches schema)
                         'lat': ERCOT_ZONES[col]['lat'],
                         'lon': ERCOT_ZONES[col]['lon'],
+                        'tier': ERCOT_ZONES[col]['tier'],  # Hub vs strategic classification
                         'last_updated': datetime.now().isoformat(),  # ISO format timestamp
                         # Keep raw data for reference
                         'zone_key': col,
@@ -138,6 +152,13 @@ def fetch_ercot_realtime_spp() -> Optional[pd.DataFrame]:
         
         result_df = pd.DataFrame(zone_data)
         logger.info(f"Processed {len(result_df)} zones with price data")
+        
+        # Log tier breakdown
+        if 'tier' in result_df.columns:
+            hub_count = len(result_df[result_df['tier'] == 'hub'])
+            strategic_count = len(result_df[result_df['tier'] == 'strategic'])
+            logger.info(f"  → {hub_count} major hubs (tier='hub')")
+            logger.info(f"  → {strategic_count} strategic nodes (tier='strategic')")
         
         # Log sample prices in both formats
         if len(result_df) > 0:

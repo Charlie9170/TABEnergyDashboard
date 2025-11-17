@@ -10,7 +10,7 @@ Displays real-time electricity prices across ERCOT weather zones:
 
 import streamlit as st
 import pandas as pd
-import pydeck as pdk
+import plotly.graph_objects as go
 from datetime import datetime
 
 import sys
@@ -28,6 +28,16 @@ def render():
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
     
+    # Detail Level Toggle
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        view_mode = st.radio(
+            "Detail Level",
+            ["Major Hubs (8)", "All Nodes (10)"],
+            horizontal=False,
+            help="Major Hubs: Fast, proven stable view (8 zones)\nAll Nodes: Includes strategic detail nodes (10 total)"
+        )
+    
     try:
         # Load data with error handling
         df = load_parquet("price_map.parquet", "price_map", allow_empty=True)
@@ -38,6 +48,19 @@ def render():
             st.info("Run the ETL script to fetch real-time ERCOT LMP data.")
             st.code("python etl/ercot_lmp_etl.py", language="bash")
             return
+        
+        # Filter data based on view mode
+        if view_mode == "Major Hubs (8)":
+            if 'tier' in df.columns:
+                df = df[df['tier'] == 'hub'].copy()
+                node_count_msg = f"📍 Showing {len(df)} major hub zones"
+            else:
+                node_count_msg = f"📍 Showing {len(df)} zones (tier filter not available)"
+        else:  # All Nodes (10)
+            node_count_msg = f"📍 Showing all {len(df)} settlement points (8 hubs + 2 strategic nodes)"
+        
+        with col2:
+            st.info(node_count_msg)
         
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
@@ -83,7 +106,7 @@ def render():
         
         with col2:
             min_price_val = df[price_col].min()
-            min_zone = df.loc[df[price_col].idxmin(), 'zone'] if 'zone' in df.columns else 'N/A'
+            min_zone = df.loc[df[price_col].idxmin(), 'region'] if 'region' in df.columns else 'N/A'
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Lowest Price</div>
@@ -94,7 +117,7 @@ def render():
         
         with col3:
             max_price_val = df[price_col].max()
-            max_zone = df.loc[df[price_col].idxmax(), 'zone'] if 'zone' in df.columns else 'N/A'
+            max_zone = df.loc[df[price_col].idxmax(), 'region'] if 'region' in df.columns else 'N/A'
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Highest Price</div>
@@ -117,67 +140,73 @@ def render():
         
         st.markdown("---")
         
-        # Texas-focused locked viewport
-        view_state = pdk.ViewState(
-            latitude=31.0,
-            longitude=-99.5,
-            zoom=4.7,
-            pitch=0,
-            min_zoom=4.7,
-            max_zoom=4.7,
-        )
-        
-        # Tooltip configuration for zone-level data
-        if 'zone' in df.columns:
-            tooltip_html = "<b>{zone}</b><br/>Avg: ${avg_price:.2f}/MWh"
-            if 'min_price' in df.columns:
-                tooltip_html += "<br/>Min: ${min_price:.2f} | Max: ${max_price:.2f}"
-            tooltip_html += "<br/>Level: {price_quantile}"
-        else:
-            tooltip_html = "<b>Zone Price</b><br/>Price: ${" + price_col + ":.2f}/MWh<br/>Level: {price_quantile}"
-        
-        tooltip = {
-            "html": tooltip_html,
-            "style": {
-                "backgroundColor": "white",
-                "color": "black",
-                "fontSize": "14px",
-                "borderRadius": "6px",
-                "padding": "8px 12px",
-                "boxShadow": "0 2px 8px rgba(0,0,0,0.15)"
-            }
+        # Create Plotly Scattermapbox for reliable tooltips
+        # Color scale based on price quantiles (coral/red matching other tabs)
+        color_map = {
+            'Very Low': '#ff9682',   # Light coral
+            'Low': '#ff7864',        # Coral
+            'Medium': '#ff5a46',     # Red-coral
+            'High': '#e63c32',       # Deep red
+            'Very High': '#c81e1e',  # Dark red
         }
         
-        # Create pydeck layer with white outlines
-        layer = pdk.Layer(
-            "ScatterplotLayer",
-            data=df,
-            get_position=['lon', 'lat'],
-            get_color='color',
-            get_radius='radius',
-            radius_scale=1,
-            radius_min_pixels=15,
-            radius_max_pixels=50,
-            pickable=True,
-            auto_highlight=True,
-            stroked=True,
-            filled=True,
-            get_line_color=[255, 255, 255, 150],
-            line_width_min_pixels=2,
-            line_width_max_pixels=3,
-            opacity=0.8
+        # Map quantiles to colors
+        df['marker_color'] = df['price_quantile'].map(color_map)
+        
+        # Create Plotly figure
+        fig = go.Figure()
+        
+        # Add scatter points for each price level (for legend)
+        for level in ['Very Low', 'Low', 'Medium', 'High', 'Very High']:
+            df_level = df[df['price_quantile'] == level]
+            if len(df_level) > 0:
+                fig.add_trace(go.Scattermapbox(
+                    lat=df_level['lat'],
+                    lon=df_level['lon'],
+                    mode='markers',
+                    marker=dict(
+                        size=16,
+                        color=color_map[level],
+                        opacity=0.8,
+                    ),
+                    text=df_level['region'],
+                    customdata=df_level[['avg_price', 'price_cperkwh', 'price_quantile']],
+                    hovertemplate=(
+                        '<b>%{text}</b><br>'
+                        'Price: $%{customdata[0]:.2f}/MWh<br>'
+                        '(%{customdata[1]:.2f} ¢/kWh)<br>'
+                        'Level: %{customdata[2]}'
+                        '<extra></extra>'
+                    ),
+                    name=level,
+                    showlegend=True
+                ))
+        
+        # Update layout for Texas-focused map
+        fig.update_layout(
+            mapbox=dict(
+                style='carto-positron',  # Clean white background to match other tabs
+                center=dict(lat=31.0, lon=-99.5),
+                zoom=5.2
+            ),
+            height=500,
+            margin=dict(l=0, r=0, t=0, b=0),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=0.02,
+                xanchor="center",
+                x=0.5,
+                bgcolor="rgba(255, 255, 255, 0.9)",
+                bordercolor="rgba(0, 0, 0, 0.2)",
+                borderwidth=1
+            ),
+            hovermode='closest'
         )
         
-        # Render map with LIGHT background
-        deck = pdk.Deck(
-            layers=[layer],
-            initial_view_state=view_state,
-            map_style='mapbox://styles/mapbox/light-v10',
-            tooltip=tooltip,  # type: ignore
-            views=[pdk.View(type='MapView', controller=False)]
-        )
-        
-        st.pydeck_chart(deck, height=500, use_container_width=True)
+        # Render Plotly map
+        st.plotly_chart(fig, use_container_width=True)
         
         # Data status indicator - standardized format matching other tabs
         if 'last_updated' in df.columns:
@@ -195,24 +224,6 @@ def render():
                 df=df,
                 filename_prefix="ercot_lmp_realtime",
                 label="Download LMP Data"
-            )
-        
-        # Legend (red/coral color scheme)
-        st.markdown("### Price Levels")
-        legend_cols = st.columns(5)
-        legend_items = [
-            ('Very Low', '#ff9682'),
-            ('Low', '#ff7864'),
-            ('Medium', '#ff5a46'),
-            ('High', '#e63c32'),
-            ('Very High', '#c81e1e'),
-        ]
-        
-        for col, (label, color) in zip(legend_cols, legend_items):
-            col.markdown(
-                f'<div style="display: inline-block; width: 16px; height: 16px; '
-                f'background-color: {color}; border-radius: 50%; margin-right: 8px;"></div> {label}',
-                unsafe_allow_html=True
             )
         
         # Data source footer
