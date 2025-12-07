@@ -1,7 +1,9 @@
-# Core dependencies
-streamlit>=1.28.0
-pandas>=2.0.0
-pyarrow>=12.0.0
+# Core dependencies - PINNED VERSIONS to prevent schema mismatch
+# These exact versions ensure compatible parquet schema between local dev and GitHub Actions
+streamlit==1.45.1
+pandas==2.2.3
+pyarrow==19.0.0
+numpy==2.1.3
 
 # Data fetching
 requests>=2.31.0
