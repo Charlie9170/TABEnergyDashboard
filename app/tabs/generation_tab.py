@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import math
+import os
+from datetime import datetime
 from pathlib import Path
 
 from utils.data_sources import render_data_source_footer
@@ -237,8 +239,14 @@ def render():
         deck = create_fixed_texas_map(clean_df)
         st.pydeck_chart(deck, height=500, use_container_width=True)
         
-        # Data status indicator - MOVED BELOW MAP for better UX
-        st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API")
+        # Data status indicator with timestamp - MOVED BELOW MAP for better UX
+        file_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
+        timestamp_str = "Unknown"
+        if file_path.exists():
+            mod_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+            timestamp_str = mod_time.strftime('%Y-%m-%d %H:%M:%S')
+        
+        st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API - Last Updated: {timestamp_str}")
         
         # Enhanced legend with fuel colors
         render_legend_and_counts(clean_df)
