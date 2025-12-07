@@ -40,12 +40,6 @@ def render():
             st.code("python etl/eia_fuelmix_etl.py", language="bash")
             return
         
-        # Data status indicator - standardized format matching Price Map
-        if 'period' in df.columns:
-            latest_period = pd.to_datetime(df['period'].max())
-            timestamp = latest_period.strftime('%Y-%m-%d %H:%M:%S')
-            st.info(f"**ERCOT Fuel Mix** - Data Through: {timestamp}")
-        
         # Convert period to Central Time for display
         df['period_ct'] = df['period'].dt.tz_convert('America/Chicago')
         
@@ -167,6 +161,12 @@ def render():
         # Data source footer
         last_updated = get_last_updated(df)
         render_data_source_footer('fuelmix', last_updated)
+        
+        # Timestamp banner at bottom - matching Price Map style
+        if 'period' in df.columns:
+            latest_period = pd.to_datetime(df['period'].max())
+            timestamp = latest_period.strftime('%Y-%m-%d %H:%M:%S')
+            st.success(f"**ERCOT Fuel Mix Data** - Last Updated: {timestamp}")
         
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
