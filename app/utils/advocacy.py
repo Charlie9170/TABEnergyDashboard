@@ -6,6 +6,7 @@ These messages communicate TAB's pro-business, pro-Texas energy policy positions
 """
 
 import streamlit as st
+import html
 
 
 def render_advocacy_message(tab_name: str):
@@ -74,6 +75,10 @@ def render_advocacy_message(tab_name: str):
     if not message:
         return
     
+    # Escape HTML in title and content to prevent XSS
+    safe_title = html.escape(message['title'])
+    safe_content = html.escape(message['content'])
+    
     # Render as professional info box with TAB branding
     st.markdown(
         f"""
@@ -93,14 +98,15 @@ def render_advocacy_message(tab_name: str):
                 color: #FFFFFF;
                 letter-spacing: 0.3px;
             ">
-                🏛️ {message['title']}
+                🏛️ {safe_title}
             </div>
             <div style="
                 font-size: 13px;
                 line-height: 1.6;
                 color: #E8EAED;
+                white-space: pre-wrap;
             ">
-                {message['content']}
+                {safe_content}
             </div>
         </div>
         """,

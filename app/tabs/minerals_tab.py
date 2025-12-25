@@ -21,6 +21,7 @@ from utils.data_sources import render_data_source_footer
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
+from utils.table_styling import apply_professional_table_style
 
 
 # Development status color palette (TAB brand colors - refined)
@@ -407,32 +408,12 @@ def render_deposits_table(df: pd.DataFrame, filters: dict):
         lambda x: f"{x:,.0f}" if x > 0 else "TBD"
     )
     
+    # Apply professional styling using reusable utility
+    styled_df = apply_professional_table_style(display_df.style)
+    
     # Display dataframe with professional styling
     st.dataframe(
-        display_df.style.set_properties(**{
-            'text-align': 'left',
-            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-            'font-size': '13px',
-            'padding': '8px 12px'
-        }).set_table_styles([
-            {'selector': 'th', 'props': [
-                ('background-color', '#f8f9fa'),
-                ('color', '#374151'),
-                ('font-weight', '600'),
-                ('text-align', 'left'),
-                ('padding', '12px'),
-                ('border-bottom', '2px solid #e5e7eb')
-            ]},
-            {'selector': 'tr:nth-child(even)', 'props': [
-                ('background-color', '#f9fafb')
-            ]},
-            {'selector': 'tr:hover', 'props': [
-                ('background-color', '#f3f4f6')
-            ]},
-            {'selector': 'td', 'props': [
-                ('border-bottom', '1px solid #e5e7eb')
-            ]}
-        ]),
+        styled_df,
         use_container_width=True,
         height=400
     )

@@ -332,7 +332,7 @@ def render():
             - Gas: All natural gas technologies (combined cycle, combustion turbine, steam)
             - Solar: Solar photovoltaic installations
             - Wind: Onshore wind turbines
-            - Storage: Battery energy storage systems (87 facilities, {int(storage_capacity):,} MW)
+            - Storage: Battery energy storage systems ({len(df[df['fuel'] == 'STORAGE'])} facilities, {int(storage_capacity):,} MW)
             - Other: Coal, nuclear, hydroelectric, and miscellaneous sources
             
             **Map Visualization:**
