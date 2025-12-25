@@ -120,34 +120,44 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
 
 
 def render_legend_and_counts(df: pd.DataFrame):
-    """Render fuel type legend with colors and counts."""
-    st.markdown("**Map Legend:**")
+    """Horizontal legend matching Fuel Mix tab format - under map"""
     
-    # Create color legend in columns
-    fuel_counts = df['fuel'].value_counts()
-    cols = st.columns(min(5, len(fuel_counts)))
+    # Get fuel type data
+    fuel_stats = df.groupby('fuel').agg({
+        'plant_name': 'count',
+        'capacity_mw': 'sum'
+    }).reset_index()
     
-    for i, (fuel, count) in enumerate(fuel_counts.items()):
-        col_idx = i % len(cols)
-        color = FUEL_COLORS_HEX.get(str(fuel), '#a0a0a0')
-        capacity = df[df['fuel'] == fuel]['capacity_mw'].sum()
+    fuel_stats.columns = ['Fuel Type', 'Plants', 'Capacity (MW)']
+    fuel_stats = fuel_stats.sort_values('Capacity (MW)', ascending=False)
+    
+    # Build horizontal legend HTML matching Fuel Mix style
+    legend_items = []
+    for _, row in fuel_stats.iterrows():
+        fuel = row['Fuel Type']
+        plants = int(row['Plants'])
+        capacity = row['Capacity (MW)']
         
-        with cols[col_idx]:
-            st.markdown(
-                f'''
-                <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                    <div style="width: 12px; height: 12px; background-color: {color}; 
-                                border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
-                    <span style="font-size: 13px;"><b>{fuel}</b>: {count} plants ({capacity:,.0f} MW)</span>
-                </div>
-                ''', 
-                unsafe_allow_html=True
-            )
+        # Get color
+        color = FUEL_COLORS_HEX.get(fuel.upper(), '#CCCCCC')
+        
+        legend_items.append(
+            f'<span style="margin-right: 20px; white-space: nowrap;">'
+            f'<span style="display: inline-block; width: 12px; height: 12px; '
+            f'background-color: {color}; margin-right: 6px; vertical-align: middle; '
+            f'border: 1px solid rgba(0,0,0,0.15);"></span>'
+            f'<span style="font-size: 12px; color: #374151;">{fuel.title()}</span>'
+            f'</span>'
+        )
     
-    st.markdown("""
-    - 📏 **Point Size**: Proportional to plant capacity (MW)  
-    - 📍 **Hover**: View detailed facility information
-    """)
+    # Render horizontal legend
+    st.markdown(
+        f'<div style="text-align: center; padding: 12px 0; background-color: #f9fafb; '
+        f'border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin: 16px 0;">'
+        f'{"".join(legend_items)}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
 
 def render():
@@ -239,6 +249,9 @@ def render():
         deck = create_fixed_texas_map(clean_df)
         st.pydeck_chart(deck, height=500, use_container_width=True)
         
+        # Horizontal legend right under map - matching Fuel Mix style
+        render_legend_and_counts(clean_df)
+        
         # Data status indicator with timestamp - MOVED BELOW MAP for better UX
         file_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
         timestamp_str = "Unknown"
@@ -247,9 +260,6 @@ def render():
             timestamp_str = mod_time.strftime('%Y-%m-%d %H:%M:%S')
         
         st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API - Last Updated: {timestamp_str}")
-        
-        # Enhanced legend with fuel colors
-        render_legend_and_counts(clean_df)
         
         # Data Export Section
         st.markdown("---")
