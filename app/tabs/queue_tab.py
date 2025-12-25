@@ -19,6 +19,7 @@ from utils.loaders import load_parquet, get_last_updated, get_file_modification_
 from utils.data_sources import render_data_source_footer
 from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -148,6 +149,9 @@ def render():
     # Header
     st.markdown("### ERCOT Interconnection Queue")
     st.markdown("Real projects from ERCOT's Capacity, Demand and Reserves (CDR) Report showing the interconnection queue pipeline of future generation capacity.")
+    
+    # Add advocacy message
+    render_advocacy_message('queue')
     
     try:
         # Load queue data

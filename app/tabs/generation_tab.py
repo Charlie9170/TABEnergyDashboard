@@ -10,6 +10,7 @@ from utils.data_sources import render_data_source_footer
 from utils.colors import FUEL_COLORS_HEX
 from utils.loaders import get_last_updated
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
@@ -165,6 +166,9 @@ def render():
     # Minimal header - ultra compact
     st.markdown("### Texas Power Generation Facilities")
     
+    # Add advocacy message
+    render_advocacy_message('generation')
+    
     try:
         # Load generation data
         data_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
@@ -209,9 +213,9 @@ def render():
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-card-title">Total Capacity</div>
+                <div class="metric-card-title">Total Nameplate Capacity</div>
                 <div class="metric-card-value">{total_capacity:,.0f} MW</div>
-                <div class="metric-card-subtitle">Combined Nameplate Capacity</div>
+                <div class="metric-card-subtitle">Theoretical Maximum Output</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -295,11 +299,15 @@ def render():
         
         renewable_capacity = fuel_breakdown.get('SOLAR', 0) + fuel_breakdown.get('WIND', 0)
         renewable_pct = (renewable_capacity / fuel_breakdown.sum()) * 100
+        storage_capacity = fuel_breakdown.get('STORAGE', 0)
+        storage_pct = (storage_capacity / fuel_breakdown.sum()) * 100
         
         st.markdown(f"""
-        - **Grid Scale**: Texas operates {total_plants:,} power plants with {total_capacity:,.0f} MW total capacity
-        - **Fuel Diversity**: {len(fuel_breakdown)} different fuel types provide generation
-        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of installed capacity
+        - **Grid Scale**: Texas operates {total_plants:,} power plants with {total_capacity:,.0f} MW total nameplate capacity
+        - **Nameplate vs. Actual**: Nameplate capacity represents theoretical maximum output; actual generation varies by fuel type, weather, and demand
+        - **Fuel Diversity**: {len(fuel_breakdown)} different fuel types provide generation, including {int(fuel_breakdown.get('STORAGE', 0)):,} MW of battery storage
+        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of installed nameplate capacity
+        - **Battery Storage**: {int(storage_capacity):,} MW of battery storage ({storage_pct:.1f}% of total capacity) provides grid flexibility and reliability
         - **Geographic Distribution**: Plants spread across all regions of Texas for grid reliability
         - **Data Currency**: Live EIA data updated from official government sources
         """)
@@ -314,11 +322,17 @@ def render():
             - Geocoding: Plant locations approximated using regional mapping
             - Last Updated: {get_last_updated(df)[:19]}Z
             
+            **Capacity Notes:**
+            - **Nameplate Capacity**: Theoretical maximum output under ideal conditions
+            - **Actual Generation**: Varies by fuel type - gas plants ~50-60% capacity factor, wind ~35%, solar ~25%
+            - **Battery Storage**: Included as generation source - provides grid flexibility and demand response
+            - **Not Real-Time**: These are installed capacity numbers, not current generation levels
+            
             **Fuel Type Mapping:**
             - Gas: All natural gas technologies (combined cycle, combustion turbine, steam)
             - Solar: Solar photovoltaic installations
             - Wind: Onshore wind turbines
-            - Storage: Battery energy storage systems
+            - Storage: Battery energy storage systems (87 facilities, {int(storage_capacity):,} MW)
             - Other: Coal, nuclear, hydroelectric, and miscellaneous sources
             
             **Map Visualization:**

@@ -20,6 +20,7 @@ from utils.loaders import load_parquet, get_last_updated
 from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
 from utils.data_sources import render_data_source_footer
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def render():
@@ -28,6 +29,9 @@ def render():
     # Minimal header matching other tabs - ultra compact
     st.markdown("### ERCOT Fuel Mix")
     st.markdown("Hourly electricity generation by fuel type across the ERCOT grid.")
+    
+    # Add advocacy message
+    render_advocacy_message('fuelmix')
     
     try:
         # Load data with graceful error handling

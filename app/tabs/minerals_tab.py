@@ -20,6 +20,7 @@ from utils.loaders import load_parquet, get_last_updated, get_file_modification_
 from utils.data_sources import render_data_source_footer
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 # Development status color palette (TAB brand colors - refined)
@@ -364,7 +365,7 @@ def render_minerals_legend(df: pd.DataFrame):
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):
     """
-    Display filterable table of mineral deposits.
+    Display filterable table of mineral deposits with professional formatting.
     
     Args:
         df: Deposits DataFrame
@@ -406,9 +407,32 @@ def render_deposits_table(df: pd.DataFrame, filters: dict):
         lambda x: f"{x:,.0f}" if x > 0 else "TBD"
     )
     
-    # Display dataframe with styling
+    # Display dataframe with professional styling
     st.dataframe(
-        display_df,
+        display_df.style.set_properties(**{
+            'text-align': 'left',
+            'font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+            'font-size': '13px',
+            'padding': '8px 12px'
+        }).set_table_styles([
+            {'selector': 'th', 'props': [
+                ('background-color', '#f8f9fa'),
+                ('color', '#374151'),
+                ('font-weight', '600'),
+                ('text-align', 'left'),
+                ('padding', '12px'),
+                ('border-bottom', '2px solid #e5e7eb')
+            ]},
+            {'selector': 'tr:nth-child(even)', 'props': [
+                ('background-color', '#f9fafb')
+            ]},
+            {'selector': 'tr:hover', 'props': [
+                ('background-color', '#f3f4f6')
+            ]},
+            {'selector': 'td', 'props': [
+                ('border-bottom', '1px solid #e5e7eb')
+            ]}
+        ]),
         use_container_width=True,
         height=400
     )
@@ -419,6 +443,9 @@ def render():
     
     # Minimal header - ultra compact (matching Generation tab)
     st.markdown("### Minerals & Critical Minerals")
+    
+    # Add advocacy message
+    render_advocacy_message('minerals')
     
     # Load data
     try:
