@@ -20,6 +20,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils.loaders import load_parquet, get_last_updated
 from utils.data_sources import render_data_source_footer
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def render():
@@ -27,6 +28,9 @@ def render():
     
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
+    
+    # Add advocacy message
+    render_advocacy_message('pricemap')
     
     # Professional styling for view toggle (Option A: Minimal Professional)
     st.markdown("""

@@ -20,6 +20,7 @@ from utils.loaders import load_parquet, get_last_updated
 from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
 from utils.data_sources import render_data_source_footer
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def render():
@@ -28,6 +29,9 @@ def render():
     # Minimal header matching other tabs - ultra compact
     st.markdown("### ERCOT Fuel Mix")
     st.markdown("Hourly electricity generation by fuel type across the ERCOT grid.")
+    
+    # Add advocacy message
+    render_advocacy_message('fuelmix')
     
     try:
         # Load data with graceful error handling
@@ -146,6 +150,12 @@ def render():
         
         st.plotly_chart(fig, use_container_width=True)
         
+        # Timestamp banner right under the chart legend - matching Price Map style
+        if 'period' in df.columns:
+            latest_period = pd.to_datetime(df['period'].max())
+            timestamp = latest_period.strftime('%Y-%m-%d %H:%M:%S')
+            st.success(f"**ERCOT Fuel Mix Data** - Last Updated: {timestamp}")
+        
         # Data Export Section
         st.markdown("---")
         col1, col2 = st.columns([3, 1])
@@ -161,12 +171,6 @@ def render():
         # Data source footer
         last_updated = get_last_updated(df)
         render_data_source_footer('fuelmix', last_updated)
-        
-        # Timestamp banner at bottom - matching Price Map style
-        if 'period' in df.columns:
-            latest_period = pd.to_datetime(df['period'].max())
-            timestamp = latest_period.strftime('%Y-%m-%d %H:%M:%S')
-            st.success(f"**ERCOT Fuel Mix Data** - Last Updated: {timestamp}")
         
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")

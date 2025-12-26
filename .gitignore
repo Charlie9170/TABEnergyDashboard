@@ -64,3 +64,7 @@ tmp/
 
 # OS
 Thumbs.db
+*.pyc
+__pycache__/
+test_board_review.py
+demo_advocacy.py

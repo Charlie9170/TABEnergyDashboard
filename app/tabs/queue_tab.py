@@ -19,6 +19,7 @@ from utils.loaders import load_parquet, get_last_updated, get_file_modification_
 from utils.data_sources import render_data_source_footer
 from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -149,6 +150,9 @@ def render():
     st.markdown("### ERCOT Interconnection Queue")
     st.markdown("Real projects from ERCOT's Capacity, Demand and Reserves (CDR) Report showing the interconnection queue pipeline of future generation capacity.")
     
+    # Add advocacy message
+    render_advocacy_message('queue')
+    
     try:
         # Load queue data
         data_path = Path(__file__).parent.parent.parent / "data" / "queue.parquet"
@@ -234,43 +238,35 @@ def render():
             
         st.pydeck_chart(deck, height=600, use_container_width=True)
         
+        # Horizontal legend right under map - matching Generation Map and Fuel Mix style
+        st.markdown(
+            '<div style="text-align: center; padding: 12px 0; background-color: #f9fafb; '
+            'border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin: 16px 0;">'
+            '<span style="margin-right: 24px; white-space: nowrap;">'
+            '<span style="display: inline-block; width: 16px; height: 16px; '
+            'background-color: rgb(200, 16, 46); border-radius: 50%; margin-right: 8px; '
+            'vertical-align: middle; border: 1px solid rgba(0,0,0,0.15);"></span>'
+            '<span style="font-size: 12px; color: #374151;"><b>Large Projects</b> (>70th percentile)</span>'
+            '</span>'
+            '<span style="margin-right: 24px; white-space: nowrap;">'
+            '<span style="display: inline-block; width: 14px; height: 14px; '
+            'background-color: rgb(160, 16, 46); border-radius: 50%; margin-right: 8px; '
+            'vertical-align: middle; border: 1px solid rgba(0,0,0,0.15);"></span>'
+            '<span style="font-size: 12px; color: #374151;"><b>Medium Projects</b> (40-70th percentile)</span>'
+            '</span>'
+            '<span style="white-space: nowrap;">'
+            '<span style="display: inline-block; width: 12px; height: 12px; '
+            'background-color: rgb(27, 54, 93); border-radius: 50%; margin-right: 8px; '
+            'vertical-align: middle; border: 1px solid rgba(0,0,0,0.15);"></span>'
+            '<span style="font-size: 12px; color: #374151;"><b>Small Projects</b> (<40th percentile)</span>'
+            '</span>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        
         # Status indicator
         timestamp = get_file_modification_time("queue.parquet")
         st.success(f"**ERCOT CDR Data** - Last Updated: {timestamp}")
-        
-        # UPDATED LEGEND - matches new color scheme
-        st.markdown("### Map Legend")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("""
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 20px; height: 20px; background-color: rgb(200, 16, 46); border-radius: 50%; border: 2px solid white;"></div>
-                <span><b>Large Projects</b> (>70th percentile)</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 16px; height: 16px; background-color: rgb(160, 16, 46); border-radius: 50%; border: 2px solid white;"></div>
-                <span><b>Medium Projects</b> (40-70th percentile)</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown("""
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <div style="width: 12px; height: 12px; background-color: rgb(27, 54, 93); border-radius: 50%; border: 2px solid white;"></div>
-                <span><b>Small Projects</b> (<40th percentile)</span>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.markdown("""
-        - **Dot Size**: Proportional to project capacity (MW) - larger projects have bigger dots
-        - **Hover**: View project name, capacity, fuel type, and county
-        - **Pan/Zoom**: Enabled for detailed inspection
-        """)
         
         st.markdown("---")
     

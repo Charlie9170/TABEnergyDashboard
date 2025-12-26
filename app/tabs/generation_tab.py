@@ -10,6 +10,7 @@ from utils.data_sources import render_data_source_footer
 from utils.colors import FUEL_COLORS_HEX
 from utils.loaders import get_last_updated
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 
 
 def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
@@ -120,40 +121,53 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
 
 
 def render_legend_and_counts(df: pd.DataFrame):
-    """Render fuel type legend with colors and counts."""
-    st.markdown("**Map Legend:**")
+    """Horizontal legend matching Fuel Mix tab format - under map"""
     
-    # Create color legend in columns
-    fuel_counts = df['fuel'].value_counts()
-    cols = st.columns(min(5, len(fuel_counts)))
+    # Get fuel type data
+    fuel_stats = df.groupby('fuel').agg({
+        'plant_name': 'count',
+        'capacity_mw': 'sum'
+    }).reset_index()
     
-    for i, (fuel, count) in enumerate(fuel_counts.items()):
-        col_idx = i % len(cols)
-        color = FUEL_COLORS_HEX.get(str(fuel), '#a0a0a0')
-        capacity = df[df['fuel'] == fuel]['capacity_mw'].sum()
+    fuel_stats.columns = ['Fuel Type', 'Plants', 'Capacity (MW)']
+    fuel_stats = fuel_stats.sort_values('Capacity (MW)', ascending=False)
+    
+    # Build horizontal legend HTML matching Fuel Mix style
+    legend_items = []
+    for _, row in fuel_stats.iterrows():
+        fuel = row['Fuel Type']
+        plants = int(row['Plants'])
+        capacity = row['Capacity (MW)']
         
-        with cols[col_idx]:
-            st.markdown(
-                f'''
-                <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                    <div style="width: 12px; height: 12px; background-color: {color}; 
-                                border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
-                    <span style="font-size: 13px;"><b>{fuel}</b>: {count} plants ({capacity:,.0f} MW)</span>
-                </div>
-                ''', 
-                unsafe_allow_html=True
-            )
+        # Get color
+        color = FUEL_COLORS_HEX.get(fuel.upper(), '#CCCCCC')
+        
+        legend_items.append(
+            f'<span style="margin-right: 20px; white-space: nowrap;">'
+            f'<span style="display: inline-block; width: 12px; height: 12px; '
+            f'background-color: {color}; margin-right: 6px; vertical-align: middle; '
+            f'border: 1px solid rgba(0,0,0,0.15);"></span>'
+            f'<span style="font-size: 12px; color: #374151;">{fuel.title()}</span>'
+            f'</span>'
+        )
     
-    st.markdown("""
-    - 📏 **Point Size**: Proportional to plant capacity (MW)  
-    - 📍 **Hover**: View detailed facility information
-    """)
+    # Render horizontal legend
+    st.markdown(
+        f'<div style="text-align: center; padding: 12px 0; background-color: #f9fafb; '
+        f'border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin: 16px 0;">'
+        f'{"".join(legend_items)}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
 
 
 def render():
     """Render the Generation Map tab with comprehensive error handling."""
     # Minimal header - ultra compact
     st.markdown("### Texas Power Generation Facilities")
+    
+    # Add advocacy message
+    render_advocacy_message('generation')
     
     try:
         # Load generation data
@@ -199,9 +213,9 @@ def render():
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-card-title">Total Capacity</div>
+                <div class="metric-card-title">Total Nameplate Capacity</div>
                 <div class="metric-card-value">{total_capacity:,.0f} MW</div>
-                <div class="metric-card-subtitle">Combined Nameplate Capacity</div>
+                <div class="metric-card-subtitle">Theoretical Maximum Output</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -239,6 +253,9 @@ def render():
         deck = create_fixed_texas_map(clean_df)
         st.pydeck_chart(deck, height=500, use_container_width=True)
         
+        # Horizontal legend right under map - matching Fuel Mix style
+        render_legend_and_counts(clean_df)
+        
         # Data status indicator with timestamp - MOVED BELOW MAP for better UX
         file_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
         timestamp_str = "Unknown"
@@ -247,9 +264,6 @@ def render():
             timestamp_str = mod_time.strftime('%Y-%m-%d %H:%M:%S')
         
         st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API - Last Updated: {timestamp_str}")
-        
-        # Enhanced legend with fuel colors
-        render_legend_and_counts(clean_df)
         
         # Data Export Section
         st.markdown("---")
@@ -285,11 +299,15 @@ def render():
         
         renewable_capacity = fuel_breakdown.get('SOLAR', 0) + fuel_breakdown.get('WIND', 0)
         renewable_pct = (renewable_capacity / fuel_breakdown.sum()) * 100
+        storage_capacity = fuel_breakdown.get('STORAGE', 0)
+        storage_pct = (storage_capacity / fuel_breakdown.sum()) * 100
         
         st.markdown(f"""
-        - **Grid Scale**: Texas operates {total_plants:,} power plants with {total_capacity:,.0f} MW total capacity
-        - **Fuel Diversity**: {len(fuel_breakdown)} different fuel types provide generation
-        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of installed capacity
+        - **Grid Scale**: Texas operates {total_plants:,} power plants with {total_capacity:,.0f} MW total nameplate capacity
+        - **Nameplate vs. Actual**: Nameplate capacity represents theoretical maximum output; actual generation varies by fuel type, weather, and demand
+        - **Fuel Diversity**: {len(fuel_breakdown)} different fuel types provide generation, including {int(fuel_breakdown.get('STORAGE', 0)):,} MW of battery storage
+        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of installed nameplate capacity
+        - **Battery Storage**: {int(storage_capacity):,} MW of battery storage ({storage_pct:.1f}% of total capacity) provides grid flexibility and reliability
         - **Geographic Distribution**: Plants spread across all regions of Texas for grid reliability
         - **Data Currency**: Live EIA data updated from official government sources
         """)
@@ -304,11 +322,17 @@ def render():
             - Geocoding: Plant locations approximated using regional mapping
             - Last Updated: {get_last_updated(df)[:19]}Z
             
+            **Capacity Notes:**
+            - **Nameplate Capacity**: Theoretical maximum output under ideal conditions
+            - **Actual Generation**: Varies by fuel type - gas plants ~50-60% capacity factor, wind ~35%, solar ~25%
+            - **Battery Storage**: Included as generation source - provides grid flexibility and demand response
+            - **Not Real-Time**: These are installed capacity numbers, not current generation levels
+            
             **Fuel Type Mapping:**
             - Gas: All natural gas technologies (combined cycle, combustion turbine, steam)
             - Solar: Solar photovoltaic installations
             - Wind: Onshore wind turbines
-            - Storage: Battery energy storage systems
+            - Storage: Battery energy storage systems ({len(df[df['fuel'] == 'STORAGE'])} facilities, {int(storage_capacity):,} MW)
             - Other: Coal, nuclear, hydroelectric, and miscellaneous sources
             
             **Map Visualization:**

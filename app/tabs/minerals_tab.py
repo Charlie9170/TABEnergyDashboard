@@ -20,6 +20,8 @@ from utils.loaders import load_parquet, get_last_updated, get_file_modification_
 from utils.data_sources import render_data_source_footer
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
+from utils.table_styling import apply_professional_table_style
 
 
 # Development status color palette (TAB brand colors - refined)
@@ -364,7 +366,7 @@ def render_minerals_legend(df: pd.DataFrame):
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):
     """
-    Display filterable table of mineral deposits.
+    Display filterable table of mineral deposits with professional formatting.
     
     Args:
         df: Deposits DataFrame
@@ -406,9 +408,12 @@ def render_deposits_table(df: pd.DataFrame, filters: dict):
         lambda x: f"{x:,.0f}" if x > 0 else "TBD"
     )
     
-    # Display dataframe with styling
+    # Apply professional styling using reusable utility
+    styled_df = apply_professional_table_style(display_df.style)
+    
+    # Display dataframe with professional styling
     st.dataframe(
-        display_df,
+        styled_df,
         use_container_width=True,
         height=400
     )
@@ -419,6 +424,9 @@ def render():
     
     # Minimal header - ultra compact (matching Generation tab)
     st.markdown("### Minerals & Critical Minerals")
+    
+    # Add advocacy message
+    render_advocacy_message('minerals')
     
     # Load data
     try:
