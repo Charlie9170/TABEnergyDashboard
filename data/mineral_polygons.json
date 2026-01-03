@@ -1,0 +1,324 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Smackover Formation",
+        "formation_type": "Lithium Brine Basin",
+        "minerals": "Lithium (Li) in salty brines",
+        "status": "Major",
+        "area_sqkm": 12500,
+        "description": "High-concentration lithium in salty brines; one of the richest deposits in North America. Basin extends from East Texas into Louisiana and Arkansas.",
+        "counties": "Harrison, Panola, Rusk, Gregg, Marion, Cass, Upshur, Smith, Cherokee",
+        "development": "Active development by Exxon, Chevron, Halliburton, Smackover Lithium, TerraVolta (DOE $225M funding), EnergyX (50,000 tons/year by 2030). Direct lithium extraction from brines; pilot facilities operational in Texarkana region.",
+        "geological_age": "Upper Jurassic",
+        "depth_meters": "2400-3600",
+        "reserves_estimate": "One of largest lithium resources in North America",
+        "color": [200, 16, 46, 85]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-94.75, 33.65],
+          [-94.65, 33.70],
+          [-94.45, 33.75],
+          [-94.25, 33.70],
+          [-94.05, 33.60],
+          [-93.85, 33.45],
+          [-93.75, 33.25],
+          [-93.70, 33.00],
+          [-93.65, 32.75],
+          [-93.60, 32.50],
+          [-93.58, 32.25],
+          [-93.70, 32.10],
+          [-93.90, 32.05],
+          [-94.15, 32.10],
+          [-94.35, 32.20],
+          [-94.50, 32.35],
+          [-94.60, 32.55],
+          [-94.68, 32.75],
+          [-94.72, 33.00],
+          [-94.75, 33.25],
+          [-94.77, 33.45],
+          [-94.75, 33.65]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Round Top Mountain",
+        "formation_type": "REE-bearing Rhyolite Intrusion",
+        "minerals": "Heavy REEs (Dy, Tb, Y), Lithium, Beryllium, Uranium, Thorium",
+        "status": "Major",
+        "area_sqkm": 2.6,
+        "description": "Large rare earth element deposit in a Paleogene laccolith containing over 300,000 metric tons of rare earth oxides. Includes heavy REEs critical for magnets, electronics, and defense applications.",
+        "counties": "Hudspeth",
+        "development": "Active development by Texas Mineral Resources Corp. (TMRC) and USA Rare Earth LLC. Plans for onsite processing using acid leaching and electromagnetic methods. Defense Department contract awarded. Mining targeted to start in 2020s with production of high-purity dysprosium and up to 2,000 tons of magnets annually.",
+        "geological_age": "Eocene (~37 Ma)",
+        "deposit_type": "Porphyry-style laccolith",
+        "reserves_estimate": "300,000+ MT rare earth oxides with high heavy REE concentration",
+        "color": [200, 16, 46, 90]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-104.95, 30.72],
+          [-104.92, 30.73],
+          [-104.88, 30.73],
+          [-104.85, 30.72],
+          [-104.83, 30.70],
+          [-104.82, 30.67],
+          [-104.82, 30.64],
+          [-104.83, 30.61],
+          [-104.85, 30.59],
+          [-104.88, 30.58],
+          [-104.92, 30.58],
+          [-104.95, 30.59],
+          [-104.97, 30.61],
+          [-104.98, 30.64],
+          [-104.98, 30.67],
+          [-104.97, 30.70],
+          [-104.95, 30.72]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Llano Uplift (Central Mineral Region)",
+        "formation_type": "Precambrian Igneous & Metamorphic Complex",
+        "minerals": "REEs, Uranium, Thorium, Beryllium, Lithium, Industrial Minerals",
+        "status": "Discovery",
+        "area_sqkm": 5800,
+        "description": "Historic mining region in Texas Hill Country exposing Precambrian basement rocks. Contains pegmatite deposits with rare earths, uranium, thorium, and critical minerals. Currently in research and assessment phase with significant academic interest from UT Austin Bureau of Economic Geology.",
+        "counties": "Llano, Burnet, San Saba, Mason, Gillespie, Blanco",
+        "development": "Research stage. Historic mining for iron, granite, and uranium in mid-20th century. Recent USGS assessments show potential for REE extraction from pegmatites. No active commercial production; ongoing geological surveys.",
+        "geological_age": "Precambrian (1.0-1.3 Ga)",
+        "deposit_type": "Granitic pegmatites in dome structure",
+        "reserves_estimate": "Undetermined; exploratory assessment ongoing",
+        "color": [27, 54, 93, 70]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-99.15, 30.85],
+          [-99.00, 30.90],
+          [-98.80, 30.92],
+          [-98.60, 30.90],
+          [-98.45, 30.85],
+          [-98.32, 30.78],
+          [-98.25, 30.68],
+          [-98.22, 30.55],
+          [-98.25, 30.42],
+          [-98.32, 30.30],
+          [-98.45, 30.22],
+          [-98.65, 30.18],
+          [-98.85, 30.18],
+          [-99.05, 30.22],
+          [-99.20, 30.30],
+          [-99.28, 30.42],
+          [-99.32, 30.55],
+          [-99.30, 30.70],
+          [-99.22, 30.80],
+          [-99.15, 30.85]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sierra Blanca / Eagle Mountains District",
+        "formation_type": "Volcanic & Pegmatite Complex",
+        "minerals": "Beryllium, REEs, Fluorite, Lithium",
+        "status": "Early",
+        "area_sqkm": 850,
+        "description": "Beryllium deposits in volcanic rocks and pegmatites in Trans-Pecos region. Associated with Round Top Mountain REE deposit. Resources identified but largely undeveloped. Historic fluorite mining in area.",
+        "counties": "Hudspeth, Culberson",
+        "development": "No current commercial production. Resources identified through USGS surveys and academic research. Beryllium potential noted in association with Round Top development. Exploratory sampling ongoing.",
+        "geological_age": "Tertiary volcanic rocks",
+        "deposit_type": "Volcanic-hosted beryllium and fluorite",
+        "reserves_estimate": "Resources identified but not quantified",
+        "color": [245, 158, 11, 75]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-105.55, 31.40],
+          [-105.45, 31.42],
+          [-105.30, 31.42],
+          [-105.15, 31.38],
+          [-105.05, 31.30],
+          [-105.00, 31.18],
+          [-105.02, 31.05],
+          [-105.10, 30.95],
+          [-105.22, 30.88],
+          [-105.38, 30.85],
+          [-105.52, 30.90],
+          [-105.60, 31.00],
+          [-105.63, 31.12],
+          [-105.62, 31.25],
+          [-105.55, 31.40]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Brewster County Ranch",
+        "formation_type": "Undisclosed REE Occurrence",
+        "minerals": "Rare Earth Elements (unspecified types)",
+        "status": "Exploratory",
+        "area_sqkm": 1432,
+        "description": "353,785-acre ranch (1,432 km²) with REE mineralization discovered via geological survey on state-owned land purchased by Texas General Land Office in 2024. Specific elements and quantities not publicly detailed. Potential for future exploration and mining, but no active development reported.",
+        "counties": "Brewster",
+        "development": "Exploratory stage. Land acquired by Texas GLO in 2024. No drilling permits or development plans announced. Geological assessment likely ongoing. Represents strategic state investment in critical minerals.",
+        "geological_age": "Unknown (Tertiary volcanic region)",
+        "deposit_type": "Unknown; likely volcanic-hosted",
+        "reserves_estimate": "Unknown; early reconnaissance stage",
+        "color": [251, 191, 36, 65]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-103.75, 30.15],
+          [-103.50, 30.20],
+          [-103.25, 30.18],
+          [-103.10, 30.10],
+          [-103.05, 29.95],
+          [-103.08, 29.75],
+          [-103.15, 29.55],
+          [-103.25, 29.42],
+          [-103.40, 29.35],
+          [-103.58, 29.35],
+          [-103.75, 29.42],
+          [-103.85, 29.55],
+          [-103.90, 29.72],
+          [-103.88, 29.90],
+          [-103.80, 30.05],
+          [-103.75, 30.15]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dell City Area",
+        "formation_type": "Potential REE-bearing Igneous Rocks",
+        "minerals": "Rare Earth Elements (potential)",
+        "status": "Exploratory",
+        "area_sqkm": 420,
+        "description": "Exploratory sampling of igneous rocks in Hudspeth County. USGS surveys indicate underground REE potential similar to Round Top Mountain. Ongoing mapping and assessment funded by USGS Earth MRI program ($3.4 million allocated in 2024).",
+        "counties": "Hudspeth",
+        "development": "Research and assessment phase. USGS Earth Mapping Resources Initiative (Earth MRI) active surveys. No drilling or extraction permits. Academic collaboration with UT Austin and USGS. Focus area for federal critical minerals mapping.",
+        "geological_age": "Tertiary igneous",
+        "deposit_type": "Potential alkaline igneous hosted REEs",
+        "reserves_estimate": "Unknown; assessment stage",
+        "color": [251, 191, 36, 65]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-105.35, 31.98],
+          [-105.25, 32.00],
+          [-105.10, 31.98],
+          [-104.95, 31.92],
+          [-104.88, 31.82],
+          [-104.88, 31.72],
+          [-104.95, 31.65],
+          [-105.08, 31.62],
+          [-105.22, 31.63],
+          [-105.33, 31.68],
+          [-105.40, 31.77],
+          [-105.42, 31.88],
+          [-105.35, 31.98]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Panhandle Helium District",
+        "formation_type": "Natural Gas Field with Helium",
+        "minerals": "Helium (He)",
+        "status": "Major",
+        "area_sqkm": 28000,
+        "description": "One of the largest helium-producing regions in the United States. Crude helium extracted from natural gas; critical for semiconductor manufacturing, medical imaging (MRI), aerospace, and scientific research. Texas ranks among top U.S. producers.",
+        "counties": "Potter, Moore, Hutchinson, Carson, Gray, Hansford, Ochiltree, Lipscomb, Hemphill",
+        "development": "Active production. Five major extraction plants operational with new facilities started in 2024. Commercial operators include Air Products, Linde, and independent producers. Strategic resource for U.S. technology and defense sectors. Federal helium reserve nearby in Amarillo.",
+        "geological_age": "Permian natural gas reservoirs",
+        "deposit_type": "Natural gas associated helium",
+        "reserves_estimate": "Multiple decades of production at current rates",
+        "color": [200, 16, 46, 75]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-102.60, 36.50],
+          [-102.20, 36.50],
+          [-101.70, 36.50],
+          [-101.20, 36.50],
+          [-100.80, 36.50],
+          [-100.40, 36.50],
+          [-100.00, 36.50],
+          [-100.00, 36.25],
+          [-100.00, 36.00],
+          [-100.05, 35.70],
+          [-100.15, 35.40],
+          [-100.25, 35.15],
+          [-100.40, 34.90],
+          [-100.60, 34.70],
+          [-100.85, 34.55],
+          [-101.15, 34.50],
+          [-101.50, 34.50],
+          [-101.85, 34.52],
+          [-102.15, 34.58],
+          [-102.40, 34.68],
+          [-102.60, 34.85],
+          [-102.70, 35.10],
+          [-102.75, 35.40],
+          [-102.75, 35.70],
+          [-102.72, 36.00],
+          [-102.65, 36.25],
+          [-102.60, 36.50]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Cave Peak / Trans-Pecos Volcanic Field",
+        "formation_type": "Porphyry Molybdenum with REEs",
+        "minerals": "Molybdenum (Mo), REEs (associated)",
+        "status": "Discovery",
+        "area_sqkm": 180,
+        "description": "Porphyry-style molybdenum deposit with associated rare earth elements in Trans-Pecos volcanic region. Research stage; no commercial production. Part of larger Tertiary volcanic complex with multiple mineralization styles.",
+        "counties": "Brewster, Presidio",
+        "development": "Research stage only. Academic studies by UT Austin and USGS. No mining permits or commercial interest. Geological significance as indicator of regional mineralization potential.",
+        "geological_age": "Tertiary (Eocene-Oligocene)",
+        "deposit_type": "Porphyry molybdenum",
+        "reserves_estimate": "Undetermined; reconnaissance stage",
+        "color": [27, 54, 93, 70]
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-103.85, 30.35],
+          [-103.75, 30.37],
+          [-103.65, 30.36],
+          [-103.58, 30.32],
+          [-103.55, 30.25],
+          [-103.56, 30.18],
+          [-103.62, 30.13],
+          [-103.70, 30.11],
+          [-103.79, 30.12],
+          [-103.86, 30.16],
+          [-103.90, 30.22],
+          [-103.90, 30.29],
+          [-103.85, 30.35]
+        ]]
+      }
+    }
+  ]
+}
