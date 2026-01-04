@@ -87,7 +87,7 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
     if not features:
         return None
     
-    # Extract polygon data for pydeck with enriched properties
+    # Extract polygon data for pydeck with enriched properties AND pre-formatted tooltip
     polygon_data = []
     for feature in features:
         if feature.get('geometry', {}).get('type') != 'Polygon':
@@ -96,27 +96,48 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
         coordinates = feature['geometry']['coordinates'][0]  # First ring
         properties = feature.get('properties', {})
         
+        # Pre-format tooltip HTML (pydeck doesn't support mustache templates)
+        name = properties.get('name', 'Unknown')
+        formation_type = properties.get('formation_type', 'Unknown')
+        minerals = properties.get('minerals', 'Unknown')
+        status = properties.get('status', 'Unknown')
+        area_sqkm = properties.get('area_sqkm', 0)
+        counties = properties.get('counties', 'Unknown')
+        geological_age = properties.get('geological_age', 'Unknown')
+        description = properties.get('description', '')
+        development = properties.get('development', 'No information available')
+        sources = properties.get('sources', properties.get('source', 'See documentation'))
+        
+        tooltip_html = f"""<div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 450px;">
+    <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
+        {name}
+    </div>
+    <div style="font-size: 12px; line-height: 1.5; color: #475569;">
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{status}</span></div>
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm:,.0f} km²</div>
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
+        <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Age:</span> {geological_age}</div>
+        <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;">{description}</div>
+        <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;"><span style="font-weight: 600; color: #1B365D;">Development:</span> {development}</div>
+        <div style="margin: 6px 0 0 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; font-style: italic;"><span style="font-weight: 600;">Sources:</span> {sources}</div>
+    </div>
+</div>"""
+        
         polygon_data.append({
             'polygon': coordinates,
             'color': properties.get('color', [200, 200, 200, 64]),
-            'name': properties.get('name', 'Unknown'),
-            'formation_type': properties.get('formation_type', 'Unknown'),
-            'minerals': properties.get('minerals', 'Unknown'),
-            'status': properties.get('status', 'Unknown'),
-            'area_sqkm': properties.get('area_sqkm', 0),
-            'counties': properties.get('counties', 'Unknown'),
-            'description': properties.get('description', ''),
-            'development': properties.get('development', 'No information available'),
-            'geological_age': properties.get('geological_age', 'Unknown'),
-            'deposit_type': properties.get('deposit_type', 'Unknown'),
-            'reserves_estimate': properties.get('reserves_estimate', 'Unknown'),
-            'source': properties.get('source', 'See documentation')
+        polygon_data.append({
+            'polygon': coordinates,
+            'color': properties.get('color', [200, 200, 200, 64]),
+            'tooltip_html': tooltip_html
         })
     
     if not polygon_data:
         return None
     
-    # Create PolygonLayer with transparent fills and white borders
+    # Create PolygonLayer with pre-formatted tooltips
     layer = pdk.Layer(
         "PolygonLayer",
         data=polygon_data,
@@ -132,6 +153,7 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
     )
     
     return layer
+
 
 
 def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -165,44 +187,25 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid deposit coordinates found in Texas bounds")
         return None
     
-    # Enhanced tooltip with conditional formatting for both polygons and points
+    # Pre-format tooltip HTML for deposits (pydeck doesn't support mustache templates)
+    df['tooltip_html'] = df.apply(
+        lambda row: f"""<div style="font-family: 'Inter', -apple-system, sans-serif;">
+    <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
+        {row['deposit_name']}
+    </div>
+    <div style="font-size: 13px; line-height: 1.6; color: #475569;">
+        <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {row['minerals']}</div>
+        <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{row['development_status']}</span></div>
+        <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Est. Tonnage:</span> {row['estimated_tonnage']:,.0f} MT</div>
+        <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">County:</span> {row['county']}</div>
+    </div>
+</div>""",
+        axis=1
+    )
+    
+    # Simplified tooltip configuration (uses pre-formatted HTML)
     tooltip = {
-        "html": """
-        <!-- Formation tooltip (polygon hover) - shows when hovering over shaded regions -->
-        {{#name}}
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 450px;">
-            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
-                {name}
-            </div>
-            <div style="font-size: 12px; line-height: 1.5; color: #475569;">
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{status}</span></div>
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm:,.0f} km²</div>
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
-                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Age:</span> {geological_age}</div>
-                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;">{description}</div>
-                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;"><span style="font-weight: 600; color: #1B365D;">Development:</span> {development}</div>
-                <div style="margin: 6px 0 0 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; font-style: italic;"><span style="font-weight: 600;">Source:</span> {source}</div>
-            </div>
-        </div>
-        {{/name}}
-        
-        <!-- Deposit tooltip (point hover) - shows when hovering over deposit markers -->
-        {{#deposit_name}}
-        <div style="font-family: 'Inter', -apple-system, sans-serif;">
-            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
-                {deposit_name}
-            </div>
-            <div style="font-size: 13px; line-height: 1.6; color: #475569;">
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{development_status}</span></div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Est. Tonnage:</span> {estimated_tonnage:,.0f} MT</div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">County:</span> {county}</div>
-            </div>
-        </div>
-        {{/deposit_name}}
-        """,
+        "html": "{tooltip_html}",
         "style": {
             "backgroundColor": "#FFFFFF",
             "color": "#0F172A",
@@ -361,48 +364,79 @@ def render_status_breakdown(df: pd.DataFrame):
 
 
 def render_minerals_legend(df: pd.DataFrame):
-    """Display clean legend for mineral deposit status colors (matching Generation tab style)."""
-    st.markdown("**Map Legend:**")
+    """
+    Display professional styled legend for mineral deposits matching Generation Map tab.
+    
+    Uses styled boxes with counts, tonnage, and color indicators for visual hierarchy.
+    """
+    st.markdown("#### Map Legend")
     
     status_counts = df['development_status'].value_counts()
     status_tonnage = df.groupby('development_status')['estimated_tonnage'].sum()
     
-    # Create color legend in columns
-    cols = st.columns(min(4, len(STATUS_COLORS_HEX)))
+    # Create professional legend boxes in 4 columns
+    cols = st.columns(4)
     
-    for i, (status, color_hex) in enumerate(STATUS_COLORS_HEX.items()):
-        col_idx = i % len(cols)
+    legend_order = ['Major', 'Early', 'Exploratory', 'Discovery']
+    
+    for i, status in enumerate(legend_order):
         count = status_counts.get(status, 0)
         tonnage = status_tonnage.get(status, 0)
+        color = STATUS_COLORS_HEX[status]
         
-        with cols[col_idx]:
+        with cols[i]:
+            # Professional styled box matching Generation Map
             st.markdown(
-                f'''
-                <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                    <div style="width: 12px; height: 12px; background-color: {color_hex}; 
-                                border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
-                    <span style="font-size: 13px;"><b>{status}</b>: {count} deposits ({tonnage:,.0f} MT)</span>
+                f"""
+                <div style="
+                    background: linear-gradient(135deg, {color}15 0%, {color}08 100%);
+                    border: 2px solid {color};
+                    border-radius: 8px;
+                    padding: 12px;
+                    text-align: center;
+                    height: 100%;
+                ">
+                    <div style="
+                        font-size: 12px;
+                        font-weight: 600;
+                        color: {color};
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                        margin-bottom: 6px;
+                    ">{status}</div>
+                    <div style="
+                        font-size: 28px;
+                        font-weight: 700;
+                        color: #1B365D;
+                        margin: 4px 0;
+                    ">{count}</div>
+                    <div style="
+                        font-size: 11px;
+                        color: #64748B;
+                        margin-bottom: 2px;
+                    ">deposits</div>
+                    <div style="
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #1B365D;
+                        margin-top: 6px;
+                    ">{tonnage:,.0f} MT</div>
                 </div>
-                ''', 
+                """,
                 unsafe_allow_html=True
             )
     
-    # Check if polygon data is available
-    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
-    has_polygons = polygon_path.exists()
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    if has_polygons:
-        st.markdown("""
-        - �️ **Shaded Regions**: Formation boundaries (USGS MRDS data)  
-        - 📍 **Point Markers**: Specific deposit locations  
-        - 📏 **Point Size**: Proportional to estimated tonnage (MT)  
-        - 🖱️ **Hover**: View detailed deposit information
-        """)
-    else:
-        st.markdown("""
-        - �📏 **Point Size**: Proportional to estimated tonnage (MT)  
-        - 📍 **Hover**: View detailed deposit information
-        """)
+    # Additional legend information
+    st.markdown("""
+    <div style="font-size: 13px; color: #64748B; line-height: 1.6; margin-top: 8px;">
+        <b>Map Features:</b><br>
+        • <b style="color: #1B365D;">Shaded Regions:</b> Major geological formations with peer-reviewed boundaries<br>
+        • <b style="color: #1B365D;">Circular Markers:</b> Individual deposit locations (size = estimated tonnage)<br>
+        • <b style="color: #1B365D;">Hover:</b> View detailed deposit information and citations
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):
