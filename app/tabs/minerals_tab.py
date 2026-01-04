@@ -184,6 +184,11 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid deposit coordinates found in Texas bounds")
         return None
     
+    # Ensure color column is list format (pydeck compatibility)
+    if 'color' in df.columns:
+        import numpy as np
+        df['color'] = df['color'].apply(lambda x: x.tolist() if isinstance(x, np.ndarray) else x)
+    
     # Pre-format tooltip HTML for deposits (pydeck doesn't support mustache templates)
     df['tooltip_html'] = df.apply(
         lambda row: f"""<div style="font-family: 'Inter', -apple-system, sans-serif;">
