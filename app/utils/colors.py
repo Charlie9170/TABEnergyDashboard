@@ -47,8 +47,8 @@ FUEL_COLORS_HEX = {
     
     # Smaller sources - Near-whites and subtle blues
     "HYDRO": "#F0F1F3",        # Off-White (very light)
-    "STORAGE": "#D6D9DD",      # Light Silver Gray
-    "BATTERY STORAGE": "#D6D9DD",  # Alias
+    "STORAGE": "#64748B",      # Slate Blue - Subtle, professional
+    "BATTERY STORAGE": "#64748B",  # Alias - Slate Blue
     "OIL": "#6B8CAE",          # Soft Slate Blue (complementary, muted)
     "BIOMASS": "#F3F4F6",      # Near White
     
