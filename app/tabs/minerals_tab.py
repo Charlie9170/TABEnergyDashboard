@@ -44,13 +44,19 @@ def load_polygon_data() -> Optional[dict]:
     """
     Load mineral formation polygon data from GeoJSON file.
     
+    Uses manually-digitized formations from published geological references.
+    See docs/MINERALS_DATA_SOURCES.md for full citations and methodology.
+    
     Returns:
         GeoJSON FeatureCollection dictionary or None if file doesn't exist
     """
-    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
+    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons_v2.json"
     
     if not polygon_path.exists():
-        return None
+        # Fallback to old version if new one doesn't exist
+        polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
+        if not polygon_path.exists():
+            return None
     
     try:
         with open(polygon_path, 'r') as f:
@@ -65,6 +71,9 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
     """
     Create polygon layer for mineral formations with transparent TAB colors.
     
+    Displays geological formation boundaries from published sources.
+    Tooltip shows formation metadata including citations.
+    
     Args:
         geojson_data: GeoJSON FeatureCollection with formation polygons
         
@@ -78,7 +87,7 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
     if not features:
         return None
     
-    # Extract polygon data for pydeck
+    # Extract polygon data for pydeck with enriched properties
     polygon_data = []
     for feature in features:
         if feature.get('geometry', {}).get('type') != 'Polygon':
@@ -91,8 +100,17 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
             'polygon': coordinates,
             'color': properties.get('color', [200, 200, 200, 64]),
             'name': properties.get('name', 'Unknown'),
+            'formation_type': properties.get('formation_type', 'Unknown'),
+            'minerals': properties.get('minerals', 'Unknown'),
             'status': properties.get('status', 'Unknown'),
-            'mineral_type': properties.get('mineral_type', 'Unknown')
+            'area_sqkm': properties.get('area_sqkm', 0),
+            'counties': properties.get('counties', 'Unknown'),
+            'description': properties.get('description', ''),
+            'development': properties.get('development', 'No information available'),
+            'geological_age': properties.get('geological_age', 'Unknown'),
+            'deposit_type': properties.get('deposit_type', 'Unknown'),
+            'reserves_estimate': properties.get('reserves_estimate', 'Unknown'),
+            'source': properties.get('source', 'See documentation')
         })
     
     if not polygon_data:
@@ -108,7 +126,7 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
         line_width_min_pixels=2,
         pickable=True,
         auto_highlight=True,
-        opacity=0.25,  # 25% opacity for formations
+        opacity=0.35,  # 35% opacity for better visibility while maintaining transparency
         stroked=True,
         filled=True
     )
@@ -147,9 +165,31 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid deposit coordinates found in Texas bounds")
         return None
     
-    # Enhanced tooltip with professional styling
+    # Enhanced tooltip with conditional formatting for both polygons and points
     tooltip = {
         "html": """
+        <!-- Formation tooltip (polygon hover) - shows when hovering over shaded regions -->
+        {{#name}}
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 450px;">
+            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
+                {name}
+            </div>
+            <div style="font-size: 12px; line-height: 1.5; color: #475569;">
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{status}</span></div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm:,.0f} km²</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Age:</span> {geological_age}</div>
+                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;">{description}</div>
+                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;"><span style="font-weight: 600; color: #1B365D;">Development:</span> {development}</div>
+                <div style="margin: 6px 0 0 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; font-style: italic;"><span style="font-weight: 600;">Source:</span> {source}</div>
+            </div>
+        </div>
+        {{/name}}
+        
+        <!-- Deposit tooltip (point hover) - shows when hovering over deposit markers -->
+        {{#deposit_name}}
         <div style="font-family: 'Inter', -apple-system, sans-serif;">
             <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
                 {deposit_name}
@@ -161,6 +201,7 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
                 <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">County:</span> {county}</div>
             </div>
         </div>
+        {{/deposit_name}}
         """,
         "style": {
             "backgroundColor": "#FFFFFF",
@@ -169,7 +210,7 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
             "borderRadius": "8px",
             "padding": "12px 16px",
             "boxShadow": "0 4px 12px rgba(27, 54, 93, 0.15), 0 0 0 1px rgba(27, 54, 93, 0.08)",
-            "maxWidth": "340px",
+            "maxWidth": "480px",
             "border": "none"
         }
     }
