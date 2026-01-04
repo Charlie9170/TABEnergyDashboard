@@ -91,13 +91,8 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
             'polygon': coordinates,
             'color': properties.get('color', [200, 200, 200, 64]),
             'name': properties.get('name', 'Unknown'),
-            'formation_type': properties.get('formation_type', 'Unknown'),
-            'minerals': properties.get('minerals', 'Unknown'),
             'status': properties.get('status', 'Unknown'),
-            'area_sqkm': properties.get('area_sqkm', 0),
-            'counties': properties.get('counties', 'Unknown'),
-            'description': properties.get('description', ''),
-            'development': properties.get('development', 'No information available')
+            'mineral_type': properties.get('mineral_type', 'Unknown')
         })
     
     if not polygon_data:
@@ -113,7 +108,7 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
         line_width_min_pixels=2,
         pickable=True,
         auto_highlight=True,
-        opacity=0.3,  # 30% opacity for better visibility
+        opacity=0.25,  # 25% opacity for formations
         stroked=True,
         filled=True
     )
@@ -152,29 +147,9 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid deposit coordinates found in Texas bounds")
         return None
     
-    # Enhanced tooltip with conditional formatting for both polygons and points
+    # Enhanced tooltip with professional styling
     tooltip = {
         "html": """
-        <!-- Formation tooltip (polygon hover) -->
-        {{#name}}
-        <div style="font-family: 'Inter', -apple-system, sans-serif;">
-            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
-                {name}
-            </div>
-            <div style="font-size: 13px; line-height: 1.6; color: #475569;">
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{status}</span></div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm:,.0f} km²</div>
-                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
-                <div style="margin: 8px 0 4px 0; padding-top: 6px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.4;">{description}</div>
-                <div style="margin: 4px 0; padding-top: 4px; font-size: 12px; color: #64748B; line-height: 1.4;"><span style="font-weight: 600; color: #1B365D;">Development:</span> {development}</div>
-            </div>
-        </div>
-        {{/name}}
-        
-        <!-- Deposit tooltip (point hover) -->
-        {{#deposit_name}}
         <div style="font-family: 'Inter', -apple-system, sans-serif;">
             <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
                 {deposit_name}
@@ -186,7 +161,6 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
                 <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">County:</span> {county}</div>
             </div>
         </div>
-        {{/deposit_name}}
         """,
         "style": {
             "backgroundColor": "#FFFFFF",
@@ -195,12 +169,12 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
             "borderRadius": "8px",
             "padding": "12px 16px",
             "boxShadow": "0 4px 12px rgba(27, 54, 93, 0.15), 0 0 0 1px rgba(27, 54, 93, 0.08)",
-            "maxWidth": "420px",
+            "maxWidth": "340px",
             "border": "none"
         }
     }
     
-    # Create refined scatterplot layer with INCREASED VISIBILITY
+    # Create refined scatterplot layer with professional styling
     layer = pdk.Layer(
         "ScatterplotLayer",
         data=df,
@@ -208,17 +182,17 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         get_radius="radius",
         get_fill_color="color",
         pickable=True,
-        opacity=0.95,              # Increased from 0.85 for better visibility
+        opacity=0.85,
         stroked=True,
         filled=True,
-        radius_scale=4,            # Increased from 1 to 4x size (quadruple marker size)
-        radius_min_pixels=18,      # Increased from 8 to 18 (more than double)
-        radius_max_pixels=70,      # Increased from 35 to 70 (double max size)
-        line_width_min_pixels=2.5, # Increased from 1.5 to 2.5 (thicker borders)
-        line_width_max_pixels=4,   # Increased from 2 to 4 (thicker max border)
-        get_line_color=[255, 255, 255, 255],  # Fully opaque white border for definition
+        radius_scale=1,
+        radius_min_pixels=8,      # Minimum size: refined, not tiny
+        radius_max_pixels=35,     # Maximum size: substantial but not overwhelming
+        line_width_min_pixels=1.5,
+        line_width_max_pixels=2,
+        get_line_color=[255, 255, 255, 200],  # White border for definition
         auto_highlight=True,
-        highlight_color=[255, 255, 255, 150]  # Brighter highlight on hover
+        highlight_color=[255, 255, 255, 100]  # Subtle highlight on hover
     )
     
     # Calculate map center
@@ -236,21 +210,21 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
     # Add point layer on top
     layers.append(layer)
     
-    # Create deck with Texas-focused viewport and slight zoom control
+    # Create deck with locked Texas viewport (matching Generation tab)
     deck = pdk.Deck(
         layers=layers,
         initial_view_state=pdk.ViewState(
             latitude=31.0,
             longitude=-99.5,
-            zoom=5.8,              # Increased from 4.7 to 5.8 (zoom in more)
+            zoom=4.7,
             pitch=0,
             bearing=0,
-            min_zoom=5.0,          # Allow slight zoom out (was 4.7)
-            max_zoom=8.0           # Allow zoom in to see deposits (was 4.7)
+            min_zoom=4.7,
+            max_zoom=4.7
         ),
         tooltip=tooltip,  # type: ignore
         map_style="mapbox://styles/mapbox/light-v10",
-        views=[pdk.View(type='MapView', controller=True)]  # Changed to True for zoom control
+        views=[pdk.View(type='MapView', controller=False)]
     )
     
     return deck
@@ -451,16 +425,8 @@ def render():
     # Minimal header - ultra compact (matching Generation tab)
     st.markdown("### Minerals & Critical Minerals")
     
-    # Compact advocacy message - single line, non-intrusive
-    st.markdown("""
-    <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
-        <strong>TAB Policy:</strong> Texas Association of Business supports responsible development 
-        of Texas' mineral resources to strengthen energy infrastructure and supply chains. 
-        <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" 
-           style="color: #1f4788; text-decoration: none; font-weight: 500;">Learn more →</a>
-    </div>
-    """, unsafe_allow_html=True)
+    # Add advocacy message
+    render_advocacy_message('minerals')
     
     # Load data
     try:

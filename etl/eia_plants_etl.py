@@ -40,8 +40,7 @@ LocationData = Dict[str, Union[float, str, List[str]]]
 
 # Constants
 API_BASE_URL: str = "https://api.eia.gov/v2"
-CAPACITY_ENDPOINT: str = "electricity/operating-generator-capacity"
-GENERATION_ENDPOINT: str = "electricity/electric-power-operational-data"
+ENDPOINT: str = "electricity/operating-generator-capacity"
 DATA_DIR: Path = Path(__file__).parent.parent / "data"
 MAX_RETRIES: int = 3
 BACKOFF_FACTOR: float = 0.3
@@ -171,7 +170,7 @@ def fetch_texas_generators(api_key: str) -> pd.DataFrame:
     try:
         while True:
             # Build API request for Texas generators
-            url = f"{API_BASE_URL}/{CAPACITY_ENDPOINT}/data/"
+            url = f"{API_BASE_URL}/{ENDPOINT}/data/"
             params = {
                 'api_key': api_key,
                 'frequency': 'monthly',
@@ -228,123 +227,6 @@ def fetch_texas_generators(api_key: str) -> pd.DataFrame:
     validate_input_schema(df)
     
     return df
-
-
-def fetch_actual_generation(api_key: str) -> pd.DataFrame:
-    """
-    Fetch actual generation data (not nameplate capacity) from EIA API.
-    
-    This uses EIA-923 data which reports actual electricity generation in MWh.
-    We'll get the last 3 months of data and average it to get realistic generation.
-    
-    Args:
-        api_key: EIA API key
-        
-    Returns:
-        DataFrame with plant_id and actual_generation_mw columns
-        
-    Raises:
-        EIAAPIError: If API request fails
-    """
-    logger.info("Fetching actual generation data from EIA API")
-    
-    all_data: List[Dict] = []
-    offset = 0
-    length = 5000
-    
-    session = create_http_session()
-    
-    try:
-        # Calculate date range: last 3 months of available data
-        # Using 2024 data (most recent complete year as of Jan 2026)
-        start_date = '2024-07'  # July 2024
-        end_date = '2024-09'    # September 2024 (3 months)
-        
-        while True:
-            # Build API request for actual generation
-            url = f"{API_BASE_URL}/{GENERATION_ENDPOINT}/data/"
-            params = {
-                'api_key': api_key,
-                'frequency': 'monthly',
-                'data[0]': 'generation',  # Actual generation in MWh
-                'facets[location][]': 'TX',  # Texas only
-                'facets[sectorid][]': '99',  # All sectors
-                'start': start_date,
-                'end': end_date,
-                'offset': offset,
-                'length': length,
-            }
-            
-            logger.debug(f"Fetching generation data offset {offset}")
-            
-            try:
-                response = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
-                response.raise_for_status()
-            except requests.RequestException as e:
-                logger.warning(f"Generation API request failed at offset {offset}: {e}")
-                # Generation data is optional - if it fails, we'll continue with capacity only
-                break
-            
-            try:
-                result = response.json()
-            except ValueError as e:
-                logger.warning(f"Invalid JSON in generation response: {e}")
-                break
-            
-            # Validate response
-            if 'response' not in result or 'data' not in result['response']:
-                logger.warning("Invalid generation API response structure")
-                break
-            
-            data = result['response']['data']
-            if not data:
-                break  # No more data
-            
-            all_data.extend(data)
-            
-            # Check if there's more data
-            total = int(result['response'].get('total', 0))
-            if offset + length >= total:
-                break
-            
-            offset += length
-            time.sleep(RATE_LIMIT_DELAY)
-            
-    finally:
-        session.close()
-    
-    logger.info(f"Retrieved {len(all_data)} generation records")
-    
-    if not all_data:
-        logger.warning("No actual generation data available - will use nameplate capacity only")
-        return pd.DataFrame()  # Return empty DataFrame
-    
-    # Create DataFrame
-    df = pd.DataFrame(all_data)
-    
-    # The API returns generation in MWh per month
-    # We need to convert to average MW (MWh / hours in month)
-    if 'generation' in df.columns and 'plantCode' in df.columns:
-        df['generation'] = pd.to_numeric(df['generation'], errors='coerce')
-        
-        # Average over 3 months, convert MWh to MW
-        # Approximate: 730 hours per month average
-        df_grouped = df.groupby('plantCode').agg({
-            'generation': 'mean'  # Average MWh per month
-        }).reset_index()
-        
-        # Convert monthly MWh to average MW (MWh / 730 hours)
-        df_grouped['actual_generation_mw'] = df_grouped['generation'] / 730.0
-        
-        # Remove plants with zero or negative generation
-        df_grouped = df_grouped[df_grouped['actual_generation_mw'] > 0]
-        
-        logger.info(f"Calculated actual generation for {len(df_grouped)} plants")
-        
-        return df_grouped[['plantCode', 'actual_generation_mw']]
-    
-    logger.warning("Generation data missing required columns")
-    return pd.DataFrame()
 
 
 def validate_input_schema(df: pd.DataFrame) -> None:
@@ -610,38 +492,25 @@ def normalize_fuel_types(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def transform_to_canonical_schema(df: pd.DataFrame, generation_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+def transform_to_canonical_schema(df: pd.DataFrame) -> pd.DataFrame:
     """
     Transform raw EIA data to canonical schema with validation.
-    Optionally merges actual generation data with nameplate capacity.
     
     Args:
-        df: Raw EIA DataFrame with nameplate capacity
-        generation_df: Optional DataFrame with actual generation data
+        df: Raw EIA DataFrame
         
     Returns:
-        DataFrame with canonical schema including both capacity and actual generation
+        DataFrame with canonical schema
     """
     logger.info("Transforming to canonical schema")
     
-    # Check if plantCode is available for merging with generation data
-    has_plant_code = 'plantCode' in df.columns
+    # Group by plant and aggregate generators
+    df_grouped = df.groupby(['plantName', 'lat', 'lon', 'fuel']).agg({
+        'nameplate-capacity-mw': 'sum',
+        'base_location': 'first'
+    }).reset_index()
     
-    if has_plant_code:
-        # Group by plant and aggregate generators (with plant code)
-        df_grouped = df.groupby(['plantName', 'lat', 'lon', 'fuel']).agg({
-            'nameplate-capacity-mw': 'sum',
-            'base_location': 'first',
-            'plantCode': 'first'  # Keep plant code for merging with generation data
-        }).reset_index()
-    else:
-        # Group without plant code
-        df_grouped = df.groupby(['plantName', 'lat', 'lon', 'fuel']).agg({
-            'nameplate-capacity-mw': 'sum',
-            'base_location': 'first'
-        }).reset_index()
-    
-    # Create canonical schema base
+    # Create canonical schema
     canonical_df = pd.DataFrame({
         'plant_name': df_grouped['plantName'],
         'lat': df_grouped['lat'],
@@ -651,55 +520,22 @@ def transform_to_canonical_schema(df: pd.DataFrame, generation_df: Optional[pd.D
         'last_updated': datetime.now(timezone.utc).isoformat()
     })
     
-    # Add plant_code if available
-    if has_plant_code:
-        canonical_df['plant_code'] = df_grouped['plantCode']
-    
-    # Merge actual generation data if available and we have plant codes
-    if generation_df is not None and not generation_df.empty and has_plant_code:
-        logger.info(f"Merging actual generation data for {len(generation_df)} plants")
-        canonical_df = canonical_df.merge(
-            generation_df[['plantCode', 'actual_generation_mw']],
-            left_on='plant_code',
-            right_on='plantCode',
-            how='left'
-        )
-        canonical_df.drop('plantCode', axis=1, errors='ignore')
-        
-        # Fill missing actual generation with estimated value (70% of capacity as industry avg)
-        missing_gen = canonical_df['actual_generation_mw'].isna()
-        if missing_gen.any():
-            logger.info(f"Estimating generation for {missing_gen.sum()} plants without actual data")
-            canonical_df.loc[missing_gen, 'actual_generation_mw'] = canonical_df.loc[missing_gen, 'capacity_mw'] * 0.70
-        
-        # Log how many plants got real vs estimated data
-        real_data_count = (~canonical_df['actual_generation_mw'].isna()).sum() - missing_gen.sum()
-        logger.info(f"Real generation data: {real_data_count} plants, Estimated: {missing_gen.sum()} plants")
-    else:
-        logger.warning("No actual generation data available - estimating from capacity")
-        # Estimate: average capacity factor of 70% across all plants
-        canonical_df['actual_generation_mw'] = canonical_df['capacity_mw'] * 0.70
-    
     # Validate data types
     canonical_df['capacity_mw'] = pd.to_numeric(canonical_df['capacity_mw'], errors='coerce')
-    canonical_df['actual_generation_mw'] = pd.to_numeric(canonical_df['actual_generation_mw'], errors='coerce')
     canonical_df['lat'] = pd.to_numeric(canonical_df['lat'], errors='coerce') 
     canonical_df['lon'] = pd.to_numeric(canonical_df['lon'], errors='coerce')
     
     # Remove any rows with invalid numeric data
     initial_count = len(canonical_df)
-    canonical_df = canonical_df.dropna(subset=['capacity_mw', 'actual_generation_mw', 'lat', 'lon'])
+    canonical_df = canonical_df.dropna(subset=['capacity_mw', 'lat', 'lon'])
     final_count = len(canonical_df)
     
     if initial_count != final_count:
         logger.warning(f"Dropped {initial_count - final_count} rows with invalid numeric data")
     
-    # Sort by actual generation (largest first) and deduplicate
-    canonical_df = canonical_df.sort_values('actual_generation_mw', ascending=False)
+    # Sort by capacity (largest first) and deduplicate
+    canonical_df = canonical_df.sort_values('capacity_mw', ascending=False)
     canonical_df = canonical_df.drop_duplicates(subset=['plant_name', 'fuel'], keep='first')
-    
-    # Drop plant_code before output (internal use only)
-    canonical_df = canonical_df.drop('plant_code', axis=1, errors='ignore')
     
     validate_output_schema(canonical_df)
     
@@ -779,22 +615,9 @@ def main() -> None:
         # Get API key
         api_key = get_api_key()
         
-        # Fetch nameplate capacity from EIA API
+        # Fetch data from EIA API
         raw_df = fetch_texas_generators(api_key)
         logger.info(f"Fetched {len(raw_df)} generator records")
-        
-        # Fetch actual generation data (optional - may fail gracefully)
-        try:
-            generation_df = fetch_actual_generation(api_key)
-            if not generation_df.empty:
-                logger.info(f"Fetched actual generation for {len(generation_df)} plants")
-            else:
-                logger.info("Using estimated generation based on capacity factors")
-                generation_df = None
-        except Exception as e:
-            logger.warning(f"Could not fetch actual generation data: {e}")
-            logger.info("Will estimate generation from nameplate capacity")
-            generation_df = None
         
         # Add geographic coordinates
         geo_df = geocode_plant_locations(raw_df)
@@ -802,8 +625,8 @@ def main() -> None:
         # Normalize fuel types
         fuel_df = normalize_fuel_types(geo_df)
         
-        # Transform to canonical schema with actual generation
-        final_df = transform_to_canonical_schema(fuel_df, generation_df)
+        # Transform to canonical schema
+        final_df = transform_to_canonical_schema(fuel_df)
         
         # Write output atomically
         output_path = DATA_DIR / "generation.parquet"
@@ -811,24 +634,15 @@ def main() -> None:
         
         # Log summary statistics
         total_capacity = final_df['capacity_mw'].sum()
-        total_actual = final_df['actual_generation_mw'].sum()
-        capacity_factor = (total_actual / total_capacity * 100) if total_capacity > 0 else 0
-        
-        fuel_breakdown_capacity = final_df.groupby('fuel')['capacity_mw'].sum().sort_values(ascending=False)
-        fuel_breakdown_actual = final_df.groupby('fuel')['actual_generation_mw'].sum().sort_values(ascending=False)
+        fuel_breakdown = final_df.groupby('fuel')['capacity_mw'].sum().sort_values(ascending=False)
         
         logger.info(f"ETL completed successfully:")
         logger.info(f"  Facilities: {len(final_df)}")
-        logger.info(f"  Total nameplate capacity: {total_capacity:,.0f} MW")
-        logger.info(f"  Total actual generation: {total_actual:,.0f} MW")
-        logger.info(f"  Overall capacity factor: {capacity_factor:.1f}%")
-        logger.info(f"  Capacity by fuel: {fuel_breakdown_capacity.to_dict()}")
-        logger.info(f"  Generation by fuel: {fuel_breakdown_actual.to_dict()}")
+        logger.info(f"  Total capacity: {total_capacity:,.0f} MW")
+        logger.info(f"  Fuel breakdown: {fuel_breakdown.to_dict()}")
         
         print(f"✓ Successfully processed {len(final_df)} Texas power plants")
-        print(f"✓ Total nameplate capacity: {total_capacity:,.0f} MW")
-        print(f"✓ Total actual generation: {total_actual:,.0f} MW")
-        print(f"✓ Capacity factor: {capacity_factor:.1f}%")
+        print(f"✓ Total capacity: {total_capacity:,.0f} MW")
         print(f"✓ Output: {output_path}")
         
     except Exception as e:
