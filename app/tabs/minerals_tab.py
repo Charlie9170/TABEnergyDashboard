@@ -128,9 +128,6 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
         polygon_data.append({
             'polygon': coordinates,
             'color': properties.get('color', [200, 200, 200, 64]),
-        polygon_data.append({
-            'polygon': coordinates,
-            'color': properties.get('color', [200, 200, 200, 64]),
             'tooltip_html': tooltip_html
         })
     
