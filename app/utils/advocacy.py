@@ -60,7 +60,14 @@ def render_advocacy_message(tab_name: str):
         },
         'minerals': {
             'title': 'TAB Energy Policy: Critical Minerals & Supply Chain Security',
-            'content': '<strong>Texas Association of Business champions domestic critical mineral development to strengthen supply chain security for energy technologies.</strong> Rare earth elements and critical minerals are essential for batteries, wind turbines, solar panels, and electric vehicles. We support policies that streamline permitting for responsible mineral extraction, processing, and manufacturing in Texas—reducing dependence on foreign sources while creating high-paying jobs and supporting our energy transition with American-made materials. <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" style="color: #A8C5E8; text-decoration: underline;">Learn more →</a>'
+            'content': """
+            **Texas Association of Business champions domestic critical mineral development to strengthen 
+            supply chain security for energy technologies.** Rare earth elements and critical minerals 
+            are essential for batteries, wind turbines, solar panels, and electric vehicles. We support 
+            policies that streamline permitting for responsible mineral extraction, processing, and 
+            manufacturing in Texas—reducing dependence on foreign sources while creating high-paying 
+            jobs and supporting our energy transition with American-made materials.
+            """
         }
     }
     
