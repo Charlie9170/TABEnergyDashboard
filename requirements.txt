@@ -12,6 +12,9 @@ lxml>=4.9.0
 
 # Geospatial data processing
 pyshp>=2.3.1
+geopandas>=0.14.0  # For processing USGS mineral shapefiles
+shapely>=2.0.0     # Geometric operations and coordinate validation
+fiona>=1.9.0       # Shapefile I/O backend for geopandas
 
 # Excel file handling
 openpyxl>=3.1.0

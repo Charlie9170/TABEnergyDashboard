@@ -20,22 +20,23 @@ from utils.loaders import load_parquet, get_last_updated, get_file_modification_
 from utils.data_sources import render_data_source_footer
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
+from utils.advocacy import render_advocacy_message
 from utils.table_styling import apply_professional_table_style
 
 
-# Development status color palette (TAB blue gradient - red to blues)
+# Development status color palette (TAB brand colors - refined)
 STATUS_COLORS = {
-    'Major': [220, 38, 38, 180],        # Natural Gas Red #DC2626
-    'Discovery': [27, 54, 93, 180],     # Wind Navy Blue #1B365D (darkest blue)
-    'Early': [71, 85, 105, 180],        # Slate-700 #475569 (medium blue-gray)
-    'Exploratory': [100, 116, 139, 180], # Battery Slate #64748B (light blue-gray)
+    'Major': [200, 16, 46, 220],        # TAB Red (refined alpha)
+    'Early': [255, 140, 0, 200],         # Warm Orange
+    'Exploratory': [241, 196, 15, 180],  # Soft Gold
+    'Discovery': [27, 54, 93, 160]       # TAB Navy (replaces gray)
 }
 
 STATUS_COLORS_HEX = {
-    'Major': '#DC2626',          # Natural Gas Red
-    'Discovery': '#1B365D',      # Wind Navy (darkest blue)
-    'Early': '#475569',          # Slate-700 (medium blue-gray)
-    'Exploratory': '#64748B',    # Battery Slate (light blue-gray)
+    'Major': '#C8102E',          # TAB Red
+    'Early': '#FF8C00',          # Orange
+    'Exploratory': '#F1C40F',    # Soft Gold
+    'Discovery': '#1B365D'       # TAB Navy
 }
 
 
@@ -120,12 +121,12 @@ def create_polygon_layer(geojson_data: dict) -> Optional[pdk.Layer]:
         "PolygonLayer",
         data=polygon_data,
         get_polygon="polygon",
-        get_fill_color="color",  # Use TAB brand colors from GeoJSON (red/navy/gray by status)
-        get_line_color=[255, 255, 255, 255],  # SOLID white borders
-        line_width_min_pixels=3,  # THICK
+        get_fill_color="color",
+        get_line_color=[255, 255, 255, 200],  # White borders
+        line_width_min_pixels=2,
         pickable=True,
         auto_highlight=True,
-        opacity=0.65,  # 65% opacity - FORMATIONS PRIMARY for better visibility while maintaining transparency
+        opacity=0.35,  # 35% opacity for better visibility while maintaining transparency
         stroked=True,
         filled=True
     )
@@ -164,50 +165,70 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         st.error("No valid deposit coordinates found in Texas bounds")
         return None
     
-    # Compact tooltip for formations (no conditionals, compressed width)
+    # Enhanced tooltip with conditional formatting for both polygons and points
     tooltip = {
         "html": """
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 320px;">
-            <div style="font-weight: 700; font-size: 14px; color: #1B365D; margin-bottom: 4px; border-bottom: 2px solid #DC2626; padding-bottom: 3px;">
+        <!-- Formation tooltip (polygon hover) - shows when hovering over shaded regions -->
+        {{#name}}
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 450px;">
+            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
                 {name}
             </div>
-            <div style="font-size: 11px; line-height: 1.4; color: #475569;">
-                <div style="margin: 2px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
-                <div style="margin: 2px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
-                <div style="margin: 2px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 1px 6px; border-radius: 3px; font-size: 10px;">{status}</span></div>
-                <div style="margin: 2px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm} km²</div>
-                <div style="margin: 2px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
-                <div style="margin: 4px 0 2px 0; padding-top: 3px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #64748B; line-height: 1.3;">{description}</div>
-                <div style="margin: 2px 0 0 0; padding-top: 3px; font-size: 9px; color: #94A3B8; font-style: italic;"><span style="font-weight: 600;">Source:</span> {source}</div>
+            <div style="font-size: 12px; line-height: 1.5; color: #475569;">
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Type:</span> {formation_type}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{status}</span></div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Area:</span> {area_sqkm:,.0f} km²</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Counties:</span> {counties}</div>
+                <div style="margin: 3px 0;"><span style="font-weight: 600; color: #1B365D;">Age:</span> {geological_age}</div>
+                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;">{description}</div>
+                <div style="margin: 6px 0 3px 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; line-height: 1.3;"><span style="font-weight: 600; color: #1B365D;">Development:</span> {development}</div>
+                <div style="margin: 6px 0 0 0; padding-top: 4px; border-top: 1px solid #E2E8F0; font-size: 10px; color: #94A3B8; font-style: italic;"><span style="font-weight: 600;">Source:</span> {source}</div>
             </div>
         </div>
+        {{/name}}
+        
+        <!-- Deposit tooltip (point hover) - shows when hovering over deposit markers -->
+        {{#deposit_name}}
+        <div style="font-family: 'Inter', -apple-system, sans-serif;">
+            <div style="font-weight: 700; font-size: 15px; color: #1B365D; margin-bottom: 6px; border-bottom: 2px solid #C8102E; padding-bottom: 4px;">
+                {deposit_name}
+            </div>
+            <div style="font-size: 13px; line-height: 1.6; color: #475569;">
+                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Minerals:</span> {minerals}</div>
+                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Status:</span> <span style="background-color: #F1F5F9; padding: 2px 8px; border-radius: 3px;">{development_status}</span></div>
+                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">Est. Tonnage:</span> {estimated_tonnage:,.0f} MT</div>
+                <div style="margin: 4px 0;"><span style="font-weight: 600; color: #1B365D;">County:</span> {county}</div>
+            </div>
+        </div>
+        {{/deposit_name}}
         """,
         "style": {
             "backgroundColor": "#FFFFFF",
             "color": "#0F172A",
-            "fontSize": "12px",
-            "borderRadius": "6px",
-            "padding": "10px 12px",
+            "fontSize": "13px",
+            "borderRadius": "8px",
+            "padding": "12px 16px",
             "boxShadow": "0 4px 12px rgba(27, 54, 93, 0.15), 0 0 0 1px rgba(27, 54, 93, 0.08)",
-            "maxWidth": "340px",
+            "maxWidth": "480px",
             "border": "none"
         }
     }
     
     # Create refined scatterplot layer with professional styling
-    point_layer = pdk.Layer(
+    layer = pdk.Layer(
         "ScatterplotLayer",
         data=df,
         get_position=["lon", "lat"],
         get_radius="radius",
-        get_fill_color=[120, 120, 120, 80],  # GRAY
+        get_fill_color="color",
         pickable=True,
-        opacity=0.25,  # Very subtle
+        opacity=0.85,
         stroked=True,
         filled=True,
         radius_scale=1,
-        radius_min_pixels=3,      # Minimum size: refined, not tiny
-        radius_max_pixels=8,     # Maximum size: substantial but not overwhelming
+        radius_min_pixels=8,      # Minimum size: refined, not tiny
+        radius_max_pixels=35,     # Maximum size: substantial but not overwhelming
         line_width_min_pixels=1.5,
         line_width_max_pixels=2,
         get_line_color=[255, 255, 255, 200],  # White border for definition
@@ -228,7 +249,7 @@ def create_minerals_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
             layers.append(polygon_layer)  # Polygons first (underneath)
     
     # Add point layer on top
-    layers.append(point_layer)
+    layers.append(layer)
     
     # Create deck with locked Texas viewport (matching Generation tab)
     deck = pdk.Deck(
@@ -340,43 +361,48 @@ def render_status_breakdown(df: pd.DataFrame):
 
 
 def render_minerals_legend(df: pd.DataFrame):
-    """Horizontal legend matching Generation tab style - clean, professional, no emojis."""
+    """Display clean legend for mineral deposit status colors (matching Generation tab style)."""
+    st.markdown("**Map Legend:**")
     
-    # Get formation status data (using development_status for deposits)
     status_counts = df['development_status'].value_counts()
+    status_tonnage = df.groupby('development_status')['estimated_tonnage'].sum()
     
-    # Build horizontal legend HTML matching Generation/Fuel Mix style
-    legend_items = []
-    for status in ['Major', 'Discovery', 'Early', 'Exploratory']:  # Consistent order
+    # Create color legend in columns
+    cols = st.columns(min(4, len(STATUS_COLORS_HEX)))
+    
+    for i, (status, color_hex) in enumerate(STATUS_COLORS_HEX.items()):
+        col_idx = i % len(cols)
         count = status_counts.get(status, 0)
-        color = STATUS_COLORS_HEX.get(status, '#CCCCCC')
+        tonnage = status_tonnage.get(status, 0)
         
-        legend_items.append(
-            f'<span style="margin-right: 20px; white-space: nowrap;">'
-            f'<span style="display: inline-block; width: 12px; height: 12px; '
-            f'background-color: {color}; margin-right: 6px; vertical-align: middle; '
-            f'border-radius: 50%; border: 1px solid rgba(0,0,0,0.15);"></span>'
-            f'<span style="font-size: 12px; color: #374151;"><b>{status}</b> ({count} formations)</span>'
-            f'</span>'
-        )
+        with cols[col_idx]:
+            st.markdown(
+                f'''
+                <div style="display: flex; align-items: center; margin-bottom: 4px;">
+                    <div style="width: 12px; height: 12px; background-color: {color_hex}; 
+                                border-radius: 50%; margin-right: 8px; border: 1px solid #ddd;"></div>
+                    <span style="font-size: 13px;"><b>{status}</b>: {count} deposits ({tonnage:,.0f} MT)</span>
+                </div>
+                ''', 
+                unsafe_allow_html=True
+            )
     
-    # Render horizontal legend bar
-    st.markdown(
-        f'<div style="text-align: center; padding: 12px 0; background-color: #f9fafb; '
-        f'border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin: 16px 0;">'
-        f'{"".join(legend_items)}'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+    # Check if polygon data is available
+    polygon_path = Path(__file__).parent.parent.parent / "data" / "mineral_polygons.json"
+    has_polygons = polygon_path.exists()
     
-    # Simple interaction instructions (no emojis)
-    st.markdown(
-        '<div style="text-align: center; font-size: 11px; color: #6b7280; margin-top: 8px;">'
-        'Hover over formations for details • Click and drag to pan • Scroll to zoom'
-        '</div>',
-        unsafe_allow_html=True
-    )
-
+    if has_polygons:
+        st.markdown("""
+        - �️ **Shaded Regions**: Formation boundaries (USGS MRDS data)  
+        - 📍 **Point Markers**: Specific deposit locations  
+        - 📏 **Point Size**: Proportional to estimated tonnage (MT)  
+        - 🖱️ **Hover**: View detailed deposit information
+        """)
+    else:
+        st.markdown("""
+        - �📏 **Point Size**: Proportional to estimated tonnage (MT)  
+        - 📍 **Hover**: View detailed deposit information
+        """)
 
 
 def render_deposits_table(df: pd.DataFrame, filters: dict):
@@ -440,15 +466,8 @@ def render():
     # Minimal header - ultra compact (matching Generation tab)
     st.markdown("### Minerals & Critical Minerals")
     
-    # Add advocacy message (custom HTML matching Generation tab style)
-    st.markdown("""
-    <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
-        <strong>TAB Policy:</strong> Texas Association of Business supports responsible development of Texas' mineral resources to strengthen supply chain security and energy infrastructure. 
-        <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" 
-           style="color: #1f4788; text-decoration: none; font-weight: 500;">Learn more →</a>
-    </div>
-    """, unsafe_allow_html=True)
+    # Add advocacy message
+    render_advocacy_message('minerals')
     
     # Load data
     try:
@@ -467,28 +486,6 @@ def render():
         st.markdown("---")
         
         # Filter controls
-        # Map section - full width like Generation tab
-        map_df = df.copy()  # Start with all data for map
-        st.subheader("Interactive Deposit Map")
-        
-        if not map_df.empty:
-            deck = create_minerals_map(map_df)
-            if deck:
-                st.pydeck_chart(deck, height=500, use_container_width=True)
-            else:
-                st.error("Could not create map visualization")
-        else:
-            st.info("No deposits match the selected filters")
-        
-        # Data status indicator
-        st.success(f"**Live Data**: Texas Mineral Deposits Database - {len(map_df)} deposits from manual curation & geological surveys")
-        
-        # Enhanced legend with colors
-        render_minerals_legend(map_df)
-        
-        st.markdown("---")
-        
-        # Filters section (directly under legend/key)
         st.subheader("Filter Deposits")
         col1, col2 = st.columns(2)
         
@@ -519,6 +516,41 @@ def render():
             'status': selected_status,
             'minerals': selected_minerals
         }
+        
+        # Apply filters to map data
+        map_df = df.copy()
+        if selected_status:
+            map_df = map_df[map_df['development_status'].isin(selected_status)]
+        if selected_minerals:
+            mineral_filter = map_df['minerals'].apply(
+                lambda x: any(m.strip().lower() in x.lower() for m in selected_minerals)
+            )
+            map_df = map_df[mineral_filter]
+        
+        st.markdown("---")
+        
+        # Map section - full width like Generation tab
+        st.subheader("Interactive Deposit Map")
+        
+        if not map_df.empty:
+            deck = create_minerals_map(map_df)
+            if deck:
+                st.pydeck_chart(deck, height=500, use_container_width=True)
+            else:
+                st.error("Could not create map visualization")
+        else:
+            st.info("No deposits match the selected filters")
+        
+        # Data status indicator
+        st.success(f"**Live Data**: Texas Mineral Deposits Database - {len(map_df)} deposits from manual curation & geological surveys")
+        
+        # Enhanced legend with colors
+        render_minerals_legend(map_df)
+        
+        st.markdown("---")
+        
+        # Status breakdown below map (simplified)
+        render_status_breakdown(df)
         
         st.markdown("---")
         

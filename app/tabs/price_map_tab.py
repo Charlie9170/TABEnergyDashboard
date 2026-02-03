@@ -29,8 +29,16 @@ def render():
     # Header - ultra compact
     st.markdown("### ERCOT Real-Time Price Map")
     
-    # Add advocacy message
-    render_advocacy_message('pricemap')
+    # Compact advocacy message - single line, non-intrusive
+    st.markdown("""
+    <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
+                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+        <strong>TAB Policy:</strong> Texas Association of Business supports competitive wholesale markets 
+        that keep Texas energy costs among the lowest in the nation. 
+        <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" 
+           style="color: #1f4788; text-decoration: none; font-weight: 500;">Learn more →</a>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Professional styling for view toggle (Option A: Minimal Professional)
     st.markdown("""

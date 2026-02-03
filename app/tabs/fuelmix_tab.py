@@ -30,8 +30,16 @@ def render():
     st.markdown("### ERCOT Fuel Mix")
     st.markdown("Hourly electricity generation by fuel type across the ERCOT grid.")
     
-    # Add advocacy message
-    render_advocacy_message('fuelmix')
+    # Compact advocacy message - single line, non-intrusive
+    st.markdown("""
+    <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
+                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+        <strong>TAB Policy:</strong> Texas Association of Business supports a diverse, reliable energy mix 
+        that keeps electricity affordable and competitive for Texas businesses. 
+        <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" 
+           style="color: #1f4788; text-decoration: none; font-weight: 500;">Learn more →</a>
+    </div>
+    """, unsafe_allow_html=True)
     
     try:
         # Load data with graceful error handling
