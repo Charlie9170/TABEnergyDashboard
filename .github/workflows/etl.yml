@@ -14,6 +14,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - uses: actions/setup-python@v5
         with:
@@ -43,16 +45,29 @@ jobs:
         run: python etl/ercot_queue_etl.py
         continue-on-error: true
       
-      - name: Commit changes
+      - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/*.parquet
+          
+          # Add data files
+          git add data/*.parquet || true
           
           # Create trigger file to force Streamlit Cloud redeploy
-          # Streamlit only detects .py changes; this ensures redeploy on data updates
           echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .streamlit_trigger
           git add .streamlit_trigger
           
-          git diff --quiet && git diff --staged --quiet || \
-          (git commit -m "🤖 Auto-update: $(date -u +%Y-%m-%d\ %H:%M\ UTC)" && git push)
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          # Commit changes
+          git commit -m "🤖 Auto-update: $(date -u +%Y-%m-%d %H:%M UTC)"
+          
+          # Pull latest changes with rebase (handles concurrent pushes)
+          git pull --rebase origin main
+          
+          # Push changes
+          git push origin main
