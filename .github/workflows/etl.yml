@@ -48,5 +48,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/*.parquet
+          
+          # Create trigger file to force Streamlit Cloud redeploy
+          # Streamlit only detects .py changes; this ensures redeploy on data updates
+          echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .streamlit_trigger
+          git add .streamlit_trigger
+          
           git diff --quiet && git diff --staged --quiet || \
           (git commit -m "🤖 Auto-update: $(date -u +%Y-%m-%d\ %H:%M\ UTC)" && git push)
