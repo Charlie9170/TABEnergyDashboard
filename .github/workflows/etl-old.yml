@@ -1,10 +1,10 @@
-name: ETL Data Updates
+name: ETL Data Updates (Legacy - Disabled)
 
-# Run every 6 hours and allow manual triggering
+# DISABLED: Superseded by etl.yml
+# Schedule removed to prevent conflict with etl.yml
+# Keep workflow_dispatch for manual debugging only
 on:
-  schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours at :00
-  workflow_dispatch:  # Allow manual runs
+  workflow_dispatch:  # Manual runs only - schedule intentionally removed
 
 # Grant write permissions to commit data files
 permissions:
@@ -55,12 +55,8 @@ jobs:
             echo "   Last 8 chars: ...${EIA_API_KEY_VAR: -8}"
           else
             echo "❌ ERROR: No EIA_API_KEY found in secrets or variables!"
-            echo ""
-            echo "To fix:"
-            echo "1. Go to Settings → Secrets and variables → Actions"
-            echo "2. Click 'Variables' tab"
-            echo "3. Add repository variable: EIA_API_KEY"
-            echo "4. Value: z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV"
+            echo "To fix: Go to Settings → Secrets and variables → Actions"
+            echo "Add repository secret named: EIA_API_KEY"
             exit 1
           fi
           
