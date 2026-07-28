@@ -10,11 +10,7 @@
 
 ### OQ-001: Is there a leaked API key in `.github/workflows/etl.yml.backup`?
 
-The backup workflow file `.github/workflows/etl.yml.backup` contains a comment block with what appears to be a real API key value embedded in an echo statement:
-
-```
-echo "4. Value: z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV"
-```
+The backup workflow file `.github/workflows/etl.yml.backup` contains a comment block with what appears to be a real API key value embedded in an echo statement (value redacted here — inspect the file directly if needed).
 
 *(verified: `.github/workflows/etl.yml.backup`)*
 
