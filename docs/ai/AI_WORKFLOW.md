@@ -12,6 +12,16 @@ This codebase is a production dashboard used by Texas policymakers. Regressions 
 
 ---
 
+## Source of truth hierarchy
+
+> **The repository is the primary source of truth.**
+
+1. **Code and docs/ai/ files** — authoritative. Always verify claims against them.
+2. **Chat history** — supplemental only. Use it to understand design intent or historical decisions that are not evident from the code. Never treat chat history as a substitute for reading the code.
+3. **When they conflict** — do not resolve the conflict by assumption. Document it in [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) with both the code-derived fact and the chat-stated claim, labeled with their respective evidence conventions (`*(verified: path)*` vs. `*(mentioned in chat context)*`). Ask for clarification before acting.
+
+---
+
 ## Before making any change
 
 ### 1. Read the relevant `docs/ai/` files

@@ -6,6 +6,14 @@ This directory is the **single source of truth** for AI agents and human contrib
 
 ---
 
+## Read this before you do anything else
+
+> **The repository is the primary source of truth. Chat history is supplemental.**
+>
+> Read the files below before responding to any request. If something stated in chat conflicts with what you find in the code, do not resolve the conflict by assumption — document it in [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) and ask for clarification.
+
+---
+
 ## Quick-start for a new AI session
 
 1. Read [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) — who owns the project, what it does, and why it exists.

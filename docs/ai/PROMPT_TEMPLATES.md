@@ -16,6 +16,10 @@ Before I make any changes, please:
 4. Read docs/ai/CURRENT_STATE.md for active development signals and known issues.
 5. Read docs/ai/OPEN_QUESTIONS.md for unresolved ambiguities.
 
+Important: Treat the repository as the primary source of truth.
+Use chat history only to explain design intent or historical decisions when they are not evident from the code.
+If the repository and chat conflict, document the conflict in OPEN_QUESTIONS.md instead of resolving it by assumption.
+
 Then summarize:
 - What the project does
 - How data flows from ETL to the dashboard
