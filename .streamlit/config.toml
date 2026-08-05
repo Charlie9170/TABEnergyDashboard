@@ -1,7 +1,11 @@
 # Streamlit Configuration - TAB Energy Dashboard (Light theme)
+# NOTE: base = "light" is REQUIRED and intentional. Without it, Streamlit can
+# fall back to auto-detecting the OS/browser color scheme (dark mode) even
+# with explicit colors set below, causing the background to randomly appear
+# dark navy on some machines/sessions. Do not remove `base`.
 
 [theme]
-# DO NOT SET base - let custom colors take full control
+base = "light"
 primaryColor = "#C8102E"              # TAB Red (buttons, links, accents)
 backgroundColor = "#FFFFFF"            # White background (main content)
 secondaryBackgroundColor = "#F5F7FA"  # Light gray (cards, sidebar, metrics)
