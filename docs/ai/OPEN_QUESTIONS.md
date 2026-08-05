@@ -8,20 +8,19 @@
 
 ## Security
 
-### OQ-001: Is there a leaked API key in `.github/workflows/etl.yml.backup`?
+### OQ-001: ~~Is there a leaked API key in `.github/workflows/etl.yml.backup`?~~ — RESOLVED 2026-07-28
 
-The backup workflow file `.github/workflows/etl.yml.backup` contains a comment block with what appears to be a real API key value embedded in an echo statement (value redacted here — inspect the file directly if needed).
+Confirmed: a real EIA API key (`z9d4AvwB...gQyiV`, redacted) was committed in plaintext across 8+ historical commits, in `.github/workflows/etl-old.yml`, `.github/workflows/etl.yml.backup`, and 4 files in `docs/`. `.streamlit/secrets.toml` itself was never committed (confirmed via `git log --all --full-history`).
 
-*(verified: `.github/workflows/etl.yml.backup`)*
+**Actions taken:**
+- Key rotated (new key issued at eia.gov/opendata, provided directly by repo owner, stored only in local `.streamlit/secrets.toml`, never pasted into any tracked file).
+- `.github/workflows/etl-old.yml` and `.github/workflows/etl.yml.backup` deleted.
+- Old key value scrubbed from `docs/API_KEY_SETUP_GUIDE.md`, `docs/AUTO_UPDATE_FIX_COMPLETE.md`, `docs/ETL_SETUP_COMPLETE.md`, `docs/SECURITY_AUDIT_COMPLETE.md` — replaced with `<your-eia-api-key>` placeholder.
+- **Still required (repo owner only, no agent access):** update the `EIA_API_KEY` value in GitHub **Settings → Secrets and variables → Actions**, and in Streamlit Cloud app secrets once deployed.
 
-**Questions:**
-- Is this a real EIA API key that was accidentally committed?
-- Has this key been rotated?
-- Should `.github/workflows/etl.yml.backup` be removed from the repository entirely?
+**Residual risk accepted:** the old key remains visible in git history (not rewritten/purged). Accepted as low-severity — EIA keys are free, rate-limited, read-only, no billing exposure — rotation neutralizes the practical risk without the disruption of a history rewrite (`git filter-repo`).
 
-**Recommended action:** Treat this as a potentially exposed credential. If this is a real API key, rotate it at https://www.eia.gov/opendata/ immediately and remove the backup file.
-
-**Status:** Unresolved — requires repository owner decision.
+**Status:** Resolved pending owner's confirmation that the GitHub Actions secret has been updated.
 
 ---
 

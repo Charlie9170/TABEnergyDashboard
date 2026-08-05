@@ -146,7 +146,7 @@ Comprehensive check of:
 
 Your EIA API key is stored in `.streamlit/secrets.toml`:
 ```toml
-EIA_API_KEY = "z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV"
+EIA_API_KEY = "<your-eia-api-key>"
 ```
 
 **Security Notes:**

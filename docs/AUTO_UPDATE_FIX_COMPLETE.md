@@ -91,7 +91,7 @@ All auto-update issues have been resolved. The GitHub Actions workflow now prope
 
 2. **Check for EIA_API_KEY:**
    - Should be in the "Repository secrets" list
-   - Value: `z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV` (31 chars)
+   - Value: `<your-eia-api-key>` (redacted; rotated after leak discovery, see docs/ai/OPEN_QUESTIONS.md OQ-001)
 
 3. **If missing, add it:**
    - Click "New repository secret"

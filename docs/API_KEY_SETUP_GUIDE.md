@@ -1,39 +1,39 @@
 # 🔑 EIA API Key Setup Guide - GitHub Actions
 
-## ✅ Option A: Use Repository Variables (RECOMMENDED)
+## Use Repository Secrets
 
-GitHub **Variables** are more reliable than Secrets for non-sensitive configuration.
+The EIA API key is a credential, not a configuration value — it authenticates
+requests to EIA's API under your registered identity. GitHub **Secrets** are
+the correct storage mechanism: they are masked in Actions logs and never
+displayed again after creation, unlike **Variables**, which are stored and
+displayed in plaintext. The active workflow (`.github/workflows/etl.yml`)
+reads `secrets.EIA_API_KEY` exclusively — do not create a Variable of the
+same name, it will not be used and only adds confusion.
 
-### Step 1: Create Repository Variable (2 minutes)
+### Step 1: Create/Update the Repository Secret
 
 1. Go to your repository: https://github.com/Charlie9170/TABEnergyDashboard
 
-2. Click: **Settings** → **Secrets and variables** → **Actions**
+2. Click: **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
 
-3. Click the **"Variables"** tab (not "Secrets")
+3. If `EIA_API_KEY` already exists, click it → **Update** with the new value.
+   Otherwise, click **"New repository secret"**.
 
-4. Click **"New repository variable"**
-
-5. Enter:
+4. Enter:
    - **Name**: `EIA_API_KEY`
-   - **Value**: `z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV`
+   - **Value**: `<your-eia-api-key>` (get one at https://www.eia.gov/opendata/register.php)
 
-6. Click **"Add variable"**
+5. Click **"Add secret"** (or **"Update secret"**)
 
 ### Step 2: Test the Workflow
 
 1. Go to **Actions** tab
-
 2. Select **"ETL Data Updates"** workflow
-
 3. Click **"Run workflow"** → **"Run workflow"**
-
-4. Watch the logs - you should see:
-   ```
-   ✅ Using EIA_API_KEY from VARIABLES
-      First 8 chars: z9d4AvwB...
-      Last 8 chars: ...gQyiV
-   ```
+4. Confirm the "Run EIA Fuel Mix ETL" and "Run EIA Plants ETL" steps succeed
+   without a 401/403 error. GitHub automatically redacts the secret value
+   from all log output, so you will not (and should not expect to) see it
+   printed anywhere.
 
 ### Step 3: Verify Auto-Updates
 
@@ -43,94 +43,19 @@ GitHub **Variables** are more reliable than Secrets for non-sensitive configurat
 
 ---
 
-## 🔒 Option B: Use Repository Secrets (Alternative)
+## � Troubleshooting
 
-If you prefer secrets over variables:
-
-### Step 1: Delete Existing Secret (if exists)
-
-1. Go to: **Settings** → **Secrets and variables** → **Actions** → **Secrets** tab
-
-2. Find `EIA_API_KEY` (if it exists)
-
-3. Click **Delete** to remove it
-
-### Step 2: Create New Secret
-
-1. Click **"New repository secret"**
-
-2. Enter:
-   - **Name**: `EIA_API_KEY`
-   - **Value**: `z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV`
-
-3. Click **"Add secret"**
-
-### Step 3: Test
-
-Same as Option A, Step 2
-
----
-
-## 🔍 Troubleshooting
-
-### Issue: "No EIA_API_KEY found in secrets or variables"
+### Issue: ETL step fails with an authentication error
 
 **Solution:**
-- Check you created the variable/secret with exact name: `EIA_API_KEY` (case-sensitive)
+- Check the secret name is exactly `EIA_API_KEY` (case-sensitive)
 - Verify you're in the correct repository: `Charlie9170/TABEnergyDashboard`
-- Wait 1-2 minutes after creating variable/secret, then re-run workflow
+- Wait 1-2 minutes after updating the secret, then re-run the workflow
+- Confirm the key is valid by testing it locally: `EIA_API_KEY=<key> python etl/eia_fuelmix_etl.py`
 
 ### Issue: "Context access might be invalid"
 
 This is just a linter warning, ignore it. The workflow will work fine.
-
-### Issue: ETL script says "API key not found"
-
-**Solution:**
-Check the diagnostic output in workflow logs:
-```
-🔍 API Key Diagnostics
-Secret EIA_API_KEY length: 40 characters
-Variable EIA_API_KEY length: 40 characters
-✅ Using EIA_API_KEY from VARIABLES
-```
-
-If lengths show `0`, the variable/secret isn't set correctly.
-
----
-
-## 📊 What Changed in the Workflow
-
-### Before:
-```yaml
-- name: Run EIA Fuel Mix ETL
-  env:
-    EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
-  run: python etl/eia_fuelmix_etl.py
-```
-
-### After:
-```yaml
-- name: Run EIA Fuel Mix ETL
-  run: |
-    export EIA_API_KEY="${EIA_API_KEY_SECRET:-$EIA_API_KEY_VAR}"
-    if [ -z "$EIA_API_KEY" ]; then
-      echo "⚠️  Skipping - No API key available"
-      exit 0
-    fi
-    echo "✅ API key found: ${EIA_API_KEY:0:8}...${EIA_API_KEY: -8}"
-    python etl/eia_fuelmix_etl.py
-  env:
-    EIA_API_KEY_SECRET: ${{ secrets.EIA_API_KEY }}
-    EIA_API_KEY_VAR: ${{ vars.EIA_API_KEY }}
-```
-
-**Benefits:**
-- ✅ Works with both secrets AND variables
-- ✅ Clear diagnostics showing which is used
-- ✅ Shows first/last 8 chars for verification
-- ✅ Graceful skip if no key (doesn't fail workflow)
-- ✅ Fallback: tries secret first, then variable
 
 ---
 
@@ -139,12 +64,9 @@ If lengths show `0`, the variable/secret isn't set correctly.
 You'll know it's working when:
 
 1. **Actions tab** shows green checkmarks ✅
-2. **Workflow logs** show:
-   ```
-   ✅ Using EIA_API_KEY from VARIABLES
-   ✅ API key found: z9d4AvwB...gQyiV
-   🔄 Running EIA Fuel Mix ETL...
-   ```
+2. **Workflow logs** show the ETL steps completing without an
+   authentication error (GitHub redacts the secret value itself,
+   so you will not see it printed — that's expected and correct)
 3. **Data files** get updated every 6 hours
 4. **Dashboard** shows fresh data
 

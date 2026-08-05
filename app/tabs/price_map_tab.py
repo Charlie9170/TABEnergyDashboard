@@ -40,59 +40,17 @@ def render():
     </div>
     """, unsafe_allow_html=True)
     
-    # Professional styling for view toggle (Option A: Minimal Professional)
+    # Minimal container styling (view toggle removed - always shows all 15
+    # settlement points, ERCOT's public real-time SPP source ceiling)
     st.markdown("""
     <style>
-        /* Professional view toggle styling */
-        div[data-testid="stRadio"] > div {
-            gap: 1rem;
-        }
-        div[data-testid="stRadio"] label {
-            font-size: 14px;
-            font-weight: 400;
-            color: #333333;
-            padding: 0.25rem 0.5rem;
-        }
         /* Reduce spacing around map for maximum vertical space */
         .element-container:has(iframe) {
             margin-top: 0.5rem;
             margin-bottom: 0.5rem;
         }
-        /* View toggle container styling */
-        .view-toggle-row {
-            padding: 12px 0;
-            margin-bottom: 16px;
-        }
-        .view-label {
-            color: #555555;
-            font-weight: 500;
-            font-size: 14px;
-        }
-        .view-description {
-            color: #777777;
-            font-size: 13px;
-            line-height: 1.4;
-        }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Professional single-line toggle (no emoji, clean typography)
-    col1, col2, col3 = st.columns([1.5, 3, 5])
-    with col1:
-        st.markdown('<span class="view-label">Display Mode:</span>', unsafe_allow_html=True)
-    with col2:
-        view_mode = st.radio(
-            "view_mode",
-            ["Major Hubs (9)", "All Settlement Points (15)"],
-            horizontal=True,
-            key="price_map_view",
-            label_visibility="collapsed"
-        )
-    with col3:
-        if "Major Hubs" in view_mode:
-            st.markdown('<span class="view-description">9 load zones • Faster rendering • Core coverage</span>', unsafe_allow_html=True)
-        else:
-            st.markdown('<span class="view-description">15 settlement points • Complete ERCOT coverage • 6 strategic nodes</span>', unsafe_allow_html=True)
     
     try:
         # Load data with error handling
@@ -105,34 +63,51 @@ def render():
             st.code("python etl/ercot_lmp_etl.py", language="bash")
             return
         
-        # Filter data based on view mode
-        if view_mode == "Major Hubs (9)":
-            if 'tier' in df.columns:
-                df = df[df['tier'] == 'hub'].copy()
-            else:
-                # Fallback if tier column doesn't exist
-                pass
-        # else: show all settlement points (no filtering needed)
+        # Always show all 15 settlement points (9 hubs + 6 strategic nodes).
+        # The "Major Hubs (9)" toggle was removed since ERCOT's public
+        # real-time SPP source caps out at exactly 15 settlement points —
+        # there was no meaningful "reduced" view once that ceiling is known.
         
         # Use avg_price column (from ERCOT aggregation)
         price_col = 'avg_price' if 'avg_price' in df.columns else 'price_cperkwh'
         
-        # Calculate price quantiles for color coding
-        df['price_quantile'] = pd.qcut(
-            df[price_col],
-            q=5,
-            labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'],
-            duplicates='drop'
-        ).astype(str)
-        
-        # Map quantiles to colors (red/coral scale matching generation map)
-        quantile_colors = {
+        # Calculate price quantiles for color coding.
+        # NOTE: pd.qcut's duplicates='drop' silently collapses bin *edges*
+        # when the underlying data has ties (e.g. flat/placeholder pricing
+        # with zero variance), but does NOT shrink a fixed-length labels
+        # list to match — this previously crashed with "Bin labels must be
+        # one fewer than the number of bin edges" whenever price data had
+        # low variance. Fix: generate labels sized to the actual bin count
+        # actually produced, falling back to a single "Normal" bucket when
+        # all prices are identical.
+        quantile_colors_full = {
             'Very Low': [255, 150, 130, 180],   # Light coral
             'Low': [255, 120, 100, 180],        # Coral
             'Medium': [255, 90, 70, 180],       # Red-coral
             'High': [230, 60, 50, 180],         # Deep red
             'Very High': [200, 30, 30, 180],    # Dark red
         }
+        label_order = ['Very Low', 'Low', 'Medium', 'High', 'Very High']
+
+        if df[price_col].nunique() <= 1:
+            # Zero-variance data: every zone has the same price, so a single
+            # "Normal" bucket is the only meaningful category.
+            df['price_quantile'] = 'Normal'
+            quantile_colors = {'Normal': quantile_colors_full['Medium']}
+        else:
+            bins = pd.qcut(df[price_col], q=5, duplicates='drop')
+            n_bins = bins.cat.categories.size
+            # Pick an evenly-spaced subset of the 5 canonical labels sized
+            # to however many distinct bins the data actually supports.
+            if n_bins >= len(label_order):
+                labels = label_order
+            else:
+                step = (len(label_order) - 1) / (n_bins - 1) if n_bins > 1 else 0
+                labels = [label_order[round(i * step)] for i in range(n_bins)]
+            df['price_quantile'] = pd.qcut(
+                df[price_col], q=5, labels=labels, duplicates='drop'
+            ).astype(str)
+            quantile_colors = {lbl: quantile_colors_full[lbl] for lbl in labels}
         
         # Assign colors using list comprehension
         df['color'] = [quantile_colors[q] for q in df['price_quantile']]

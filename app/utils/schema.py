@@ -94,6 +94,7 @@ COLUMN_ALIASES = {
         "nameplate_mw": "proposed_mw",
         "mw": "proposed_mw",
         "type": "fuel",
+        "fuel_type": "fuel",
     },
     "minerals": {
         "name": "deposit_name",

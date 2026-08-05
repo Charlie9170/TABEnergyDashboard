@@ -28,7 +28,7 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
     Uses TAB color scheme with red for large projects, navy for small.
     
     Args:
-        df: DataFrame with columns: lat, lon, capacity_mw, project_name, fuel_type, county, interconnection_status
+        df: DataFrame with columns: lat, lon, proposed_mw, project_name, fuel, county, status
         
     Returns:
         pydeck.Deck object or None if no valid data
@@ -47,8 +47,8 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         return None
     
     # CRITICAL FIX #2: Percentile-based radius scaling for visual differentiation
-    max_capacity = df['capacity_mw'].max()
-    min_capacity = df['capacity_mw'].min()
+    max_capacity = df['proposed_mw'].max()
+    min_capacity = df['proposed_mw'].min()
     
     def percentile_radius_scaling(capacity):
         """
@@ -70,7 +70,7 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         # Map to pixel range: 8-30px with clear size differences
         return 8 + (sqrt_scaled * 22)
     
-    df['radius'] = df['capacity_mw'].apply(percentile_radius_scaling)
+    df['radius'] = df['proposed_mw'].apply(percentile_radius_scaling)
     
     # CRITICAL FIX #3: TAB color scheme (Red for large, Navy for small) - NOT GREEN!
     def get_project_color(capacity):
@@ -87,11 +87,11 @@ def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
         else:  # Bottom 40% - TAB Navy
             return [27, 54, 93, 160]  # TAB Navy
     
-    df['color'] = df['capacity_mw'].apply(get_project_color)
+    df['color'] = df['proposed_mw'].apply(get_project_color)
     
     # CRITICAL FIX #4: Enhanced tooltip with project name (like generation map)
     tooltip = {
-        "html": "<b>{project_name}</b><br/>Capacity: {capacity_mw} MW<br/>Fuel: {fuel_type}<br/>County: {county}",
+        "html": "<b>{project_name}</b><br/>Capacity: {proposed_mw} MW<br/>Fuel: {fuel}<br/>County: {county}",
         "style": {
             "backgroundColor": "white",
             "color": "black",
@@ -162,17 +162,11 @@ def render():
     """, unsafe_allow_html=True)
     
     try:
-        # Load queue data
-        data_path = Path(__file__).parent.parent.parent / "data" / "queue.parquet"
-        
-        # Check if file exists
-        if not data_path.exists():
-            st.warning("⚠️ **Interconnection queue data not available**")
-            st.info("Run the ETL script to fetch ERCOT queue data.")
-            st.code("python etl/ercot_queue_etl.py", language="bash")
-            return
-        
-        df = pd.read_parquet(data_path)
+        # Load queue data via the canonical loader — provides schema
+        # normalization, type coercion, validation, and graceful
+        # degradation consistent with every other tab (previously this
+        # tab bypassed load_parquet() with a raw pd.read_parquet() call).
+        df = load_parquet("queue.parquet", "queue", allow_empty=True)
         
         # Check if data is empty
         if len(df) == 0:
@@ -194,16 +188,16 @@ def render():
             return
         
         # Ensure required columns exist
-        required_cols = ['capacity_mw', 'project_name', 'fuel_type']
+        required_cols = ['proposed_mw', 'project_name', 'fuel']
         missing_cols = [col for col in required_cols if col not in df_valid.columns]
         if missing_cols:
             st.error(f"❌ **Missing required columns**: {missing_cols}")
             return
     
         # Summary metrics
-        total_capacity = df_valid['capacity_mw'].sum()
+        total_capacity = df_valid['proposed_mw'].sum()
         total_projects = len(df_valid)
-        fuel_types = df_valid['fuel_type'].nunique()
+        fuel_types = df_valid['fuel'].nunique()
         
         col1, col2, col3 = st.columns(3)
         
@@ -292,10 +286,10 @@ def render():
         # Project breakdown by fuel type
         st.subheader("Queue Composition by Technology")
         
-        fuel_summary = df_valid.groupby('fuel_type').agg({
-            'capacity_mw': 'sum',
+        fuel_summary = df_valid.groupby('fuel').agg({
+            'proposed_mw': 'sum',
             'project_name': 'count'
-        }).round(0).sort_values('capacity_mw', ascending=False)
+        }).round(0).sort_values('proposed_mw', ascending=False)
         
         fuel_summary.columns = ['Total Capacity (MW)', 'Number of Projects']
         fuel_summary['Avg Size (MW)'] = (fuel_summary['Total Capacity (MW)'] / fuel_summary['Number of Projects']).round(0)
@@ -309,14 +303,14 @@ def render():
         dominant_capacity = fuel_summary.iloc[0]['Total Capacity (MW)']
         dominant_pct = (dominant_capacity / total_capacity) * 100
         
-        avg_project_size = df_valid['capacity_mw'].mean()
-        largest_project = df_valid.loc[df_valid['capacity_mw'].idxmax()]
+        avg_project_size = df_valid['proposed_mw'].mean()
+        largest_project = df_valid.loc[df_valid['proposed_mw'].idxmax()]
         
         st.markdown(f"""
         - **Pipeline Scale**: {total_projects:,} projects representing {total_capacity:,.0f} MW of future capacity
         - **Dominant Technology**: {dominant_fuel} accounts for {dominant_pct:.1f}% of planned capacity
         - **Average Project Size**: {avg_project_size:.0f} MW per project
-        - **Largest Project**: {largest_project['project_name']} ({largest_project['capacity_mw']:.0f} MW)
+        - **Largest Project**: {largest_project['project_name']} ({largest_project['proposed_mw']:.0f} MW)
         - **Geographic Concentration**: Most projects located in West Texas (Panhandle wind corridor)
         - **Data Source**: ERCOT Capacity, Demand and Reserves (CDR) Report
         """)
@@ -340,7 +334,7 @@ def render():
             **Data Processing:**
             - Coordinates validated to Texas bounds (25.8-36.5°N, -106.7 to -93.5°W)
             - Invalid coordinates filtered out
-            - Project capacities range from {df_valid['capacity_mw'].min():.0f} to {df_valid['capacity_mw'].max():.0f} MW
+            - Project capacities range from {df_valid['proposed_mw'].min():.0f} to {df_valid['proposed_mw'].max():.0f} MW
             - {len(df_valid)} of {len(df)} projects have valid Texas coordinates
             """)
         

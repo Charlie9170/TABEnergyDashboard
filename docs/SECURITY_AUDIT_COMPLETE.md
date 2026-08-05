@@ -96,7 +96,7 @@ $ git status --porcelain | grep secrets.toml
 
 ## 🚨 CURRENT EXPOSED KEY STATUS
 
-**Key:** `z9d4AvwBK6c8FXmei1kasuD849Mz6i5WALqgQyiV`
+**Key:** `<redacted; rotated after leak discovery, see docs/ai/OPEN_QUESTIONS.md OQ-001>`
 
 ### ⚠️ IMPORTANT NEXT STEP REQUIRED:
 
