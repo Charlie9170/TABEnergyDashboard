@@ -8,7 +8,7 @@ from pathlib import Path
 
 from utils.data_sources import render_data_source_footer
 from utils.colors import FUEL_COLORS_HEX
-from utils.loaders import get_last_updated
+from utils.loaders import get_last_updated, load_parquet
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
 
@@ -77,10 +77,21 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
     
     df['radius'] = df[generation_col].apply(ercot_style_radius)
     
+    # Pre-format numeric values for the tooltip. pydeck's tooltip templating
+    # only supports plain {field_name} substitution — it does NOT support
+    # Python format specifiers like {field:.0f}, which previously rendered
+    # literally as the string "{actual_generation_mw:.0f}" in the UI instead
+    # of a formatted number. Rounding here and referencing the new columns
+    # in the html template is the correct fix.
+    df['actual_generation_mw_display'] = df.get(
+        'actual_generation_mw', df['capacity_mw']
+    ).round(0).astype(int)
+    df['capacity_mw_display'] = df['capacity_mw'].round(0).astype(int)
+    
     # Tooltip configuration - show both actual generation and capacity
     if 'actual_generation_mw' in df.columns:
         tooltip = {
-            "html": "<b>{plant_name}</b><br/>Fuel: {fuel}<br/>Actual: {actual_generation_mw:.0f} MW<br/>Capacity: {capacity_mw:.0f} MW",
+            "html": "<b>{plant_name}</b><br/>Fuel: {fuel}<br/>Actual: {actual_generation_mw_display} MW<br/>Capacity: {capacity_mw_display} MW",
             "style": {
                 "backgroundColor": "white",
                 "color": "black",
@@ -200,17 +211,12 @@ def render():
     """, unsafe_allow_html=True)
     
     try:
-        # Load generation data
-        data_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
-        
-        # Check if file exists
-        if not data_path.exists():
-            st.warning("⚠️ **Generation data not available**")
-            st.info("Run the ETL script to fetch power plant data from EIA.")
-            st.code("python etl/eia_plants_etl.py", language="bash")
-            return
-            
-        df = pd.read_parquet(data_path)
+        # Load generation data via the canonical loader — this provides
+        # schema normalization, type coercion, validation, and graceful
+        # degradation consistent with every other tab (previously this
+        # tab bypassed load_parquet() with a raw pd.read_parquet() call,
+        # skipping all of the above).
+        df = load_parquet("generation.parquet", "generation", allow_empty=True)
         
         # Check if data is empty
         if len(df) == 0:
