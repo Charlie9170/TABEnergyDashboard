@@ -12,9 +12,16 @@ lxml>=4.9.0
 
 # Geospatial data processing
 pyshp>=2.3.1
-geopandas>=0.14.0  # For processing USGS mineral shapefiles
-shapely>=2.0.0     # Geometric operations and coordinate validation
-fiona>=1.9.0       # Shapefile I/O backend for geopandas
+# NOTE: geopandas/fiona/shapely were removed from here. They were only
+# used by etl/convert_shapefile.py, a local-only, manually-run script
+# for regenerating the minerals polygon overlay from a USGS shapefile
+# stored outside the repo (~/Downloads/...). Neither the deployed
+# Streamlit app nor the scheduled GitHub Action ETL scripts import
+# these packages. fiona has no prebuilt wheel for some deploy targets
+# (e.g. Streamlit Community Cloud's Python 3.14 image) and requires a
+# system GDAL install to build from source, which broke deployment.
+# If you need to regenerate polygons locally, install them ad hoc:
+#   pip install geopandas shapely fiona
 
 # Excel file handling
 openpyxl>=3.1.0
