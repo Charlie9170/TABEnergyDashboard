@@ -62,3 +62,15 @@ See [`docs/ai/AI_WORKFLOW.md`](docs/ai/AI_WORKFLOW.md) for complete behavioral g
 ## Reusable prompts
 
 See [`docs/ai/PROMPT_TEMPLATES.md`](docs/ai/PROMPT_TEMPLATES.md) for prompts covering orientation, bug diagnosis, implementation planning, and more.
+
+---
+
+## Cursor Cloud specific instructions
+
+- Dependencies are installed into a project-local virtualenv at `.venv` (gitignored). The startup update script runs `python3 -m venv .venv` + `pip install -r requirements.txt`. Always invoke tools through that venv, e.g. `.venv/bin/streamlit`, `.venv/bin/python`.
+- Run the app (dev mode): `.venv/bin/streamlit run app/main.py --server.port 8501 --server.headless true`. It serves on port `8501` (`/_stcore/health` returns 200 when ready).
+- The Streamlit app only **reads** the committed `data/*.parquet` files and gracefully degrades if any are missing — it needs **no API key, no database, and no ETL run** to boot and render all tabs. Do not require `EIA_API_KEY` just to run/view the dashboard.
+- `EIA_API_KEY` is only used by the ETL scripts (`etl/eia_*.py`, `refresh_all_data.sh`) that regenerate parquet data. It is optional for development.
+- The root-level `test_*.py` files (`test_etl_setup.py`, `test_eia_plants_etl.py`) are ETL smoke tests that make **live EIA API calls and require a valid `EIA_API_KEY`**; they are not part of the app's runnable test suite and will fail without the key. There is no configured linter (no flake8/ruff/pyproject config) and no offline unit-test suite.
+- Quick offline health check for the data layer: `.venv/bin/python scripts/validate_data.py` (validates all parquet schemas). A harmless `terminate called without an active exception` may print at exit — the script still exits 0.
+- Note (Python 3.12): the deployment target pins Python 3.11, but the pinned deps install and run cleanly on the VM's Python 3.12. Creating the venv requires the system `python3.12-venv` package (already present in the environment snapshot).
