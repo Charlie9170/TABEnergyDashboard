@@ -21,7 +21,7 @@
 | **9** | Fix `refresh_all_data.sh` | **OPEN** |
 | **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |
 | **11** | Fix workflow commit/push git strategy | **DONE** — concurrency, pull-before-ETL, push retry (`2bac401`) |
-| **12** | Reconcile `docs/ai/` | **IN PROGRESS** — this file + `CHANGELOG_FOR_AI.md` |
+| **12** | Reconcile `docs/ai/` | **DONE** — `CURRENT_STATE.md`, `CHANGELOG_FOR_AI.md` (2026-08-18) |
 
 ### Generation data gap (blocker for dashboard credibility)
 
