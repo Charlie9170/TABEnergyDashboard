@@ -38,7 +38,7 @@ run_etl() {
 run_etl "1️⃣  Fetching EIA fuel mix data..." "etl/eia_fuelmix_etl.py"
 run_etl "2️⃣  Fetching ERCOT real-time settlement prices..." "etl/ercot_lmp_etl.py"
 run_etl "3️⃣  Fetching EIA generation plants data..." "etl/eia_plants_etl.py"
-run_etl "4️⃣  Processing ERCOT interconnection queue..." "etl/ercot_queue_etl.py"
+run_etl "4️⃣  Processing ERCOT interconnection queue..." "etl/ercot_gis_queue_etl.py"
 
 echo "=================================================="
 echo "✅ ALL DATA REFRESHED SUCCESSFULLY"
