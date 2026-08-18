@@ -46,6 +46,35 @@ This is the initial creation — no existing docs/ai files exist to be stale.
 
 ---
 
+## 2026-08-18 — ETL CI fix + measured generation validation
+
+**Type:** ETL change | Bugfix | Deployment  
+**Author:** Cursor agent (Charlie9170 repo)
+
+### Summary
+Fixed GitHub Actions ETL workflow git strategy so bot commits no longer fail on binary parquet conflicts. Plants ETL failures are now visible (removed `continue-on-error`). Added `scripts/validate_generation_parquet.py` to block committing legacy 70%-fabricated `generation.parquet`. EIA plants ETL now uses rolling date windows for capacity and facility-fuel; Generation tab subtitle shows the active period when present in parquet.
+
+P0 generation integrity code (`72dacd8`) was already on `main`; this change unblocks CI from shipping fresh measured data. **Committed `generation.parquet` remains stale until a green ETL workflow run completes.**
+
+### Files changed
+- `.github/workflows/etl.yml` — concurrency, pull-before-ETL, push retry, plants ETL hard-fail, validation step
+- `scripts/validate_generation_parquet.py` — new pre-commit validation for measured generation
+- `etl/eia_plants_etl.py` — rolling capacity/generation API date windows; period columns on output
+- `app/tabs/generation_tab.py` — dynamic generation period subtitle
+
+### Schema changes (if any)
+| Dataset | Column | Change |
+|---------|--------|--------|
+| generation | `generation_is_estimated` | Required by ETL (all `False`); absent in committed parquet until CI runs |
+| generation | `generation_period_start`, `generation_period_end` | Added optional metadata columns from ETL |
+
+### What to re-read
+- `docs/ai/CURRENT_STATE.md` — audit task table, generation data gap
+- `docs/ai/DATA_FLOW.md` — ETL → parquet → Generation tab
+- `.github/workflows/etl.yml` — CI behavior
+
+---
+
 ## Template for future entries
 
 ```markdown

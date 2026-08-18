@@ -2,7 +2,36 @@
 
 > **Evidence key:** *(verified: path)* = confirmed from file; *(inferred)* = logical deduction; *(assumption)* = unverified.
 >
-> This document captures active development signals, unfinished work, backup artifacts, and technical debt **as of the documentation date (2026-07-28)**. Update this file when any of these items are resolved.
+> This document captures active development signals, unfinished work, backup artifacts, and technical debt **as of 2026-08-18**. Update this file when any of these items are resolved.
+
+---
+
+## Aug 2026 audit status (production credibility)
+
+| Task | Description | Status |
+|------|-------------|--------|
+| **1** | Price Map blank on uniform prices | **DONE** — `app/tabs/price_map_tab.py` on `main` |
+| **2** | Verify/pin Streamlit Cloud Python | **OPEN** |
+| **3** | Fix launch docs (`streamlit run app/main.py` from root) | **OPEN** |
+| **4** | Real EIA-860 coordinates | **DONE** (ETL + `data/eia860_plant_locations.parquet`; **committed `generation.parquet` still stale**) |
+| **5** | Fix facility-fuel generation join | **DONE** (ETL code; **parquet not refreshed yet**) |
+| **6** | Honest generation labeling | **DONE** — `generation_is_estimated`, no 70% fallback in tab/ETL |
+| **7** | Queue freshness labeling | **OPEN** |
+| **8** | Dynamic CDR queue source | **OPEN** |
+| **9** | Fix `refresh_all_data.sh` | **OPEN** |
+| **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |
+| **11** | Fix workflow commit/push git strategy | **DONE** — concurrency, pull-before-ETL, push retry (`2bac401`) |
+| **12** | Reconcile `docs/ai/` | **IN PROGRESS** — this file + `CHANGELOG_FOR_AI.md` |
+
+### Generation data gap (blocker for dashboard credibility)
+
+*(verified: local `data/generation.parquet` inspection, 2026-08-18)*
+
+- 850 rows, **no** `generation_is_estimated` column
+- 100% of rows have `actual_generation_mw / capacity_mw == 0.7` (fabricated legacy output)
+- W A Parish at `(32.1011, -102.1946)` with gen `1915.76` — not EIA-860 / EIA-923 values
+
+**ETL code on `main` is correct** (`etl/eia_plants_etl.py`: measured generation only, EIA-860 coords, rolling date windows). **CI must run successfully** and commit fresh parquet. After merge of `2bac401`, manually dispatch **Actions → ETL Data Updates → Run workflow** on `main` (or wait for 6-hour schedule). Validation: `python scripts/validate_generation_parquet.py`.
 
 ---
 
@@ -10,13 +39,12 @@
 
 | Signal | Evidence | Source |
 |--------|----------|--------|
-| Multiple backup files present in `app/tabs/` | `.auto_backup`, `.backup2`, `_OLD_BACKUP.py` variants | *(verified: directory listing)* |
-| Backup in `app/main.py.backup` | File exists | *(verified: directory listing)* |
-| Backup in `etl/ercot_lmp_etl.py.backup` | File exists | *(verified: directory listing)* |
-| Disabled legacy workflow `.github/workflows/etl-old.yml` | Schedule removed, workflow_dispatch only | *(verified: `.github/workflows/etl-old.yml`)* |
-| Backup workflow `.github/workflows/etl.yml.backup` | File exists | *(verified: directory listing)* |
 | `minerals_deposits.parquet` has only 1 row | Sparse data | *(verified: parquet inspection)* |
 | `data/ercot_cdr_may2025.xlsx` is a May 2025 snapshot | Filename and content imply staleness | *(verified: filename)* |
+| Disabled legacy workflow `.github/workflows/etl-old.yml` | Schedule removed, workflow_dispatch only | *(verified: `.github/workflows/etl-old.yml`)* |
+| Committed `generation.parquet` predates P0 ETL fixes | See audit table above | *(verified: parquet inspection)* |
+
+*(Backup files in `app/tabs/` and `.github/workflows/etl.yml.backup` were removed in `a8af0b1`.)*
 
 ---
 
@@ -26,7 +54,7 @@
 |--------|--------|-------|
 | `etl/eia_fuelmix_etl.py` | **Production** | Paginated EIA API fetch; falls back to demo data without API key |
 | `etl/ercot_lmp_etl.py` | **Production** | Scrapes ERCOT public HTML |
-| `etl/eia_plants_etl.py` | **Production** | EIA plant capacity API |
+| `etl/eia_plants_etl.py` | **Production** | EIA-860 coords + EIA-923 facility-fuel measured generation only; rolling date windows; fails without API key/data |
 | `etl/ercot_queue_etl.py` | **Production** | ERCOT CDR Excel parsing |
 | `etl/mineral_etl.py` | **Production (sparse)** | Manual curation; polygon generation requires external shapefile |
 | `etl/price_map_etl.py` | **Demo stub** | Hardcoded nodes; not called from CI workflow |
@@ -122,7 +150,7 @@ The `README.md` project structure diagram lists several items that are outdated:
 ## Confirmed working (as of last ETL run)
 
 - `data/fuelmix.parquet` — 1,384 rows, 4 columns *(verified: parquet inspection)*
-- `data/generation.parquet` — 850 rows, 7 columns *(verified: parquet inspection)*
+- `data/generation.parquet` — 850 rows, 7 columns — **legacy fabricated data; see audit table above** *(verified: parquet inspection)*
 - `data/price_map.parquet` — 15 rows (one per settlement point), 11 columns *(verified: parquet inspection)*
 - `data/queue.parquet` — 281 rows, 11 columns *(verified: parquet inspection)*
 
@@ -130,8 +158,7 @@ The `README.md` project structure diagram lists several items that are outdated:
 
 ## Blockers (evidenced)
 
-No hard blockers confirmed from code. The following are **potential** blockers:
-
-1. **EIA_API_KEY not set** — ETL falls back to demo data for fuelmix; generation ETL may fail *(inferred from `etl/eia_fuelmix_etl.py`)*
-2. **ERCOT HTML format change** — would break `ercot_lmp_etl.py` silently (marked `continue-on-error: true`)
-3. **Shapefile not available** — polygon overlay for minerals will not be generated *(verified: `etl/mineral_etl.py` comment)*
+1. **Committed `generation.parquet` is stale** — P0 ETL fixes merged but no successful post-fix CI run has committed measured data *(verified: GitHub Actions runs for `72dacd8`/`5f26547`/`2bac401` absent as of 2026-08-18)*. **Action:** dispatch ETL workflow on `main` after `2bac401`.
+2. **EIA_API_KEY required for plants ETL** — without it, plants ETL and `scripts/validate_generation_parquet.py` fail in CI *(verified: `etl/eia_plants_etl.py`, workflow)*.
+3. **ERCOT HTML format change** — would break `ercot_lmp_etl.py` silently (still `continue-on-error: true` for non-plants ETLs).
+4. **Shapefile not available** — polygon overlay for minerals will not be generated *(verified: `etl/mineral_etl.py` comment)*.
