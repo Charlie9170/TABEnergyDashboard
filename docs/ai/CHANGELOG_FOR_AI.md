@@ -54,7 +54,7 @@ This is the initial creation — no existing docs/ai files exist to be stale.
 ### Summary
 Fixed GitHub Actions ETL workflow git strategy so bot commits no longer fail on binary parquet conflicts. Plants ETL failures are now visible (removed `continue-on-error`). Added `scripts/validate_generation_parquet.py` to block committing legacy 70%-fabricated `generation.parquet`. EIA plants ETL now uses rolling date windows for capacity and facility-fuel; Generation tab subtitle shows the active period when present in parquet.
 
-P0 generation integrity code (`72dacd8`) was already on `main`; this change unblocks CI from shipping fresh measured data. **Committed `generation.parquet` remains stale until a green ETL workflow run completes.**
+P0 generation integrity code (`72dacd8`) was already on `main`; this change unblocks CI from shipping fresh measured data. **Green CI run [32095361711](https://github.com/Charlie9170/TABEnergyDashboard/actions/runs/32095361711) (2026-08-18) committed measured `generation.parquet` (415 rows, no 70% fabrication).** Follow-up commit `3e4d0da` added month walk-back when EIA has not published the preferred rolling window.
 
 ### Files changed
 - `.github/workflows/etl.yml` — concurrency, pull-before-ETL, push retry, plants ETL hard-fail, validation step
