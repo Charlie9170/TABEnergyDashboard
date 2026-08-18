@@ -132,20 +132,6 @@ def create_http_session() -> requests.Session:
     return session
 
 
-def rolling_capacity_period() -> Tuple[str, str]:
-    """Last complete calendar month for operating-generator capacity."""
-    last_complete = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
-    period = last_complete.strftime('%Y-%m')
-    return period, period
-
-
-def rolling_generation_period() -> Tuple[str, str]:
-    """Last three complete calendar months for facility-fuel generation averaging."""
-    end = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
-    start = end - relativedelta(months=2)
-    return start.strftime('%Y-%m'), end.strftime('%Y-%m')
-
-
 def validate_api_response(response_data: Dict) -> None:
     """
     Validate EIA API response structure.
@@ -163,95 +149,109 @@ def validate_api_response(response_data: Dict) -> None:
         raise EIAAPIError("Invalid API response: missing 'data' field")
 
 
-def fetch_texas_generators(api_key: str) -> pd.DataFrame:
-    """
-    Fetch Texas power generator data from EIA API with robust error handling.
-    
-    Args:
-        api_key: EIA API key
-        
-    Returns:
-        DataFrame with Texas generator data
-        
-    Raises:
-        EIAAPIError: If API request fails
-        ETLValidationError: If no data returned
-    """
+def rolling_capacity_period() -> Tuple[str, str]:
+    """Preferred month for operating-generator capacity (last complete calendar month)."""
+    last_complete = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    period = last_complete.strftime('%Y-%m')
+    return period, period
+
+
+def rolling_generation_period() -> Tuple[str, str]:
+    """Preferred three-month facility-fuel window ending on the last complete month."""
+    end = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    start = end - relativedelta(months=2)
+    return start.strftime('%Y-%m'), end.strftime('%Y-%m')
+
+
+def _fetch_texas_generators_for_period(
+    api_key: str, capacity_start: str, capacity_end: str
+) -> pd.DataFrame:
+    """Fetch Texas generators for a single capacity date range."""
     all_data: List[Dict] = []
     offset = 0
-    length = 5000  # Max per request
-    
-    capacity_start, capacity_end = rolling_capacity_period()
-    logger.info(
-        "Fetching Texas power plant data from EIA API (%s to %s)",
-        capacity_start,
-        capacity_end,
-    )
+    length = 5000
 
     session = create_http_session()
 
     try:
         while True:
-            # Build API request for Texas generators
             url = f"{API_BASE_URL}/{CAPACITY_ENDPOINT}/data/"
             params = {
                 'api_key': api_key,
                 'frequency': 'monthly',
                 'data[0]': 'nameplate-capacity-mw',
-                'facets[stateid][]': 'TX',  # Texas only
+                'facets[stateid][]': 'TX',
                 'start': capacity_start,
                 'end': capacity_end,
                 'offset': offset,
                 'length': length,
             }
-            
-            logger.debug(f"Fetching offset {offset}")
-            
+
             try:
                 response = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
                 response.raise_for_status()
             except requests.RequestException as e:
                 raise EIAAPIError(f"API request failed at offset {offset}: {e}")
-            
+
             try:
                 result = response.json()
             except ValueError as e:
                 raise EIAAPIError(f"Invalid JSON response at offset {offset}: {e}")
-            
+
             validate_api_response(result)
-            
-            # Extract data from response
+
             data = result['response']['data']
             if not data:
-                break  # No more data
-            
+                break
+
             all_data.extend(data)
-            
-            # Check if there's more data
+
             total = int(result['response'].get('total', 0))
             if offset + length >= total:
                 break
-            
+
             offset += length
-            
-            # Rate limiting - be respectful to EIA API
             time.sleep(RATE_LIMIT_DELAY)
-            
+
     finally:
         session.close()
-    
-    logger.info(f"Retrieved {len(all_data)} generator records")
-    
+
     if not all_data:
-        raise ETLValidationError("No generator data returned from EIA API")
-    
-    # Create DataFrame and validate schema
+        return pd.DataFrame()
+
     df = pd.DataFrame(all_data)
     if 'plantid' in df.columns:
         df['plant_code'] = df['plantid'].astype(str)
     validate_input_schema(df)
-    
     return df
+
+
+def fetch_texas_generators(api_key: str) -> Tuple[pd.DataFrame, str, str]:
+    """
+    Fetch Texas power generator data, walking back month-by-month when EIA
+    has not yet published the preferred rolling window.
+    """
+    anchor = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    preferred_start, preferred_end = rolling_capacity_period()
+    logger.info(
+        "Fetching Texas power plant capacity (preferred period %s to %s)",
+        preferred_start,
+        preferred_end,
+    )
+
+    for months_back in range(24):
+        month = anchor - relativedelta(months=months_back)
+        period = month.strftime('%Y-%m')
+        df = _fetch_texas_generators_for_period(api_key, period, period)
+        if not df.empty:
+            logger.info(
+                "Retrieved %s generator records for capacity period %s",
+                len(df),
+                period,
+            )
+            return df, period, period
+
+    raise ETLValidationError("No generator data returned from EIA API for any recent month")
 
 
 def load_plant_coordinates() -> pd.DataFrame:
@@ -305,20 +305,10 @@ def attach_plant_coordinates(df: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 
-def fetch_actual_generation(api_key: str) -> pd.DataFrame:
-    """
-    Fetch plant-level actual generation from EIA facility-fuel (Form EIA-923).
-
-    Uses plant totals (fuel2002=ALL, primeMover=ALL) and averages the requested
-    months, converting monthly MWh to average MW.
-    """
-    start_date, end_date = rolling_generation_period()
-    logger.info(
-        "Fetching actual generation from EIA facility-fuel API (%s to %s)",
-        start_date,
-        end_date,
-    )
-
+def _fetch_actual_generation_for_period(
+    api_key: str, start_date: str, end_date: str
+) -> pd.DataFrame:
+    """Fetch plant-level generation for a facility-fuel date range."""
     all_data: List[Dict] = []
     offset = 0
     length = 5000
@@ -372,22 +362,21 @@ def fetch_actual_generation(api_key: str) -> pd.DataFrame:
     finally:
         session.close()
 
-    logger.info("Retrieved %s facility-fuel records", len(all_data))
-
     if not all_data:
-        logger.warning("No facility-fuel generation data available")
         return pd.DataFrame()
 
     df = pd.DataFrame(all_data)
 
     required = {'plantCode', 'generation', 'fuel2002', 'primeMover'}
     if not required.issubset(df.columns):
-        logger.warning("facility-fuel data missing required columns: %s", required - set(df.columns))
+        logger.warning(
+            "facility-fuel data missing required columns: %s",
+            required - set(df.columns),
+        )
         return pd.DataFrame()
 
     plant_totals = df[(df['fuel2002'] == 'ALL') & (df['primeMover'] == 'ALL')].copy()
     if plant_totals.empty:
-        logger.warning("No plant-level ALL/ALL totals in facility-fuel response")
         return pd.DataFrame()
 
     plant_totals['generation'] = pd.to_numeric(plant_totals['generation'], errors='coerce')
@@ -399,8 +388,39 @@ def fetch_actual_generation(api_key: str) -> pd.DataFrame:
     df_grouped['actual_generation_mw'] = df_grouped['generation'] / 730.0
     df_grouped = df_grouped[df_grouped['actual_generation_mw'] > 0]
 
-    logger.info("Calculated actual generation for %s plants", len(df_grouped))
     return df_grouped[['plantCode', 'actual_generation_mw']]
+
+
+def fetch_actual_generation(api_key: str) -> Tuple[pd.DataFrame, str, str]:
+    """
+    Fetch measured generation, walking back month-by-month when EIA has not
+    yet published the preferred rolling three-month window.
+    """
+    preferred_start, preferred_end = rolling_generation_period()
+    logger.info(
+        "Fetching actual generation from EIA facility-fuel (preferred %s to %s)",
+        preferred_start,
+        preferred_end,
+    )
+
+    anchor_end = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    for months_back in range(24):
+        end = anchor_end - relativedelta(months=months_back)
+        start = end - relativedelta(months=2)
+        start_date, end_date = start.strftime('%Y-%m'), end.strftime('%Y-%m')
+        df = _fetch_actual_generation_for_period(api_key, start_date, end_date)
+        if not df.empty:
+            logger.info(
+                "Calculated actual generation for %s plants (%s to %s)",
+                len(df),
+                start_date,
+                end_date,
+            )
+            return df, start_date, end_date
+
+    raise ETLValidationError(
+        "EIA facility-fuel returned no measured generation data for any recent window"
+    )
 
 
 def validate_input_schema(df: pd.DataFrame) -> None:
@@ -791,15 +811,11 @@ def main() -> None:
         api_key = get_api_key()
         
         # Fetch nameplate capacity from EIA API
-        raw_df = fetch_texas_generators(api_key)
+        raw_df, _capacity_start, _capacity_end = fetch_texas_generators(api_key)
         logger.info(f"Fetched {len(raw_df)} generator records")
-        
+
         # Fetch measured generation (required)
-        generation_df = fetch_actual_generation(api_key)
-        if generation_df.empty:
-            raise ETLValidationError(
-                "EIA facility-fuel returned no measured generation data"
-            )
+        generation_df, gen_start, gen_end = fetch_actual_generation(api_key)
         logger.info("Fetched measured generation for %s plants", len(generation_df))
         
         # Add geographic coordinates from EIA-860 plant registry
@@ -811,7 +827,6 @@ def main() -> None:
         # Transform to canonical schema with actual generation
         final_df = transform_to_canonical_schema(fuel_df, generation_df)
 
-        gen_start, gen_end = rolling_generation_period()
         final_df['generation_period_start'] = gen_start
         final_df['generation_period_end'] = gen_end
 
