@@ -21,10 +21,8 @@ def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
     # Remove rows with missing essential data
     df_clean = df.dropna(subset=['plant_name', 'capacity_mw', 'fuel'])
     
-    # Handle missing coordinates by using regional approximations
-    df_clean = df_clean.copy()
-    df_clean['lat'] = df_clean['lat'].fillna(31.0)
-    df_clean['lon'] = df_clean['lon'].fillna(-99.0)
+    # Drop rows without real coordinates — do not substitute defaults
+    df_clean = df_clean.dropna(subset=['lat', 'lon'])
     
     # Prepare aggregation dict - always include capacity
     agg_dict = {
@@ -35,6 +33,8 @@ def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
     # Add actual_generation_mw if it exists in the data
     if 'actual_generation_mw' in df_clean.columns:
         agg_dict['actual_generation_mw'] = 'sum'
+    if 'generation_is_estimated' in df_clean.columns:
+        agg_dict['generation_is_estimated'] = 'max'
     
     # Group by plant and aggregate
     aggregated = df_clean.groupby(['plant_name', 'fuel', 'lat', 'lon']).agg(agg_dict).reset_index()
@@ -59,7 +59,9 @@ def create_fixed_texas_map(df: pd.DataFrame) -> pdk.Deck:
     
     # Use actual generation for radius scaling (not nameplate capacity)
     # This shows real output, not theoretical maximum
-    generation_col = 'actual_generation_mw' if 'actual_generation_mw' in df.columns else 'capacity_mw'
+    generation_col = 'actual_generation_mw'
+    if generation_col not in df.columns or df[generation_col].isna().all():
+        generation_col = 'capacity_mw'
     max_generation = df[generation_col].max()
     min_generation = df[generation_col].min()
     
@@ -227,17 +229,20 @@ def render():
         
         # Clean and aggregate data
         clean_df = clean_and_aggregate_facilities(df)
+
+        if 'actual_generation_mw' not in clean_df.columns or clean_df['actual_generation_mw'].isna().all():
+            st.warning("⚠️ **No measured generation data in this file**")
+            st.info("Re-run the ETL to refresh from EIA facility-fuel (Form EIA-923).")
+            st.code("python etl/eia_plants_etl.py", language="bash")
+            return
         
-        # Calculate KPIs using ACTUAL GENERATION (not nameplate capacity)
         total_plants = len(clean_df)
         total_capacity = clean_df['capacity_mw'].sum()
-        total_actual_gen = clean_df.get('actual_generation_mw', clean_df['capacity_mw'] * 0.7).sum()
-        
-        # Calculate capacity factor if we have actual generation
+        total_actual_gen = clean_df['actual_generation_mw'].sum()
         capacity_factor = (total_actual_gen / total_capacity * 100) if total_capacity > 0 else 0
         
-        fuel_breakdown_actual = clean_df.groupby('fuel')['actual_generation_mw'].sum().sort_values(ascending=False) if 'actual_generation_mw' in clean_df.columns else clean_df.groupby('fuel')['capacity_mw'].sum().sort_values(ascending=False)
-        largest_plant = clean_df.loc[clean_df['actual_generation_mw'].idxmax()] if 'actual_generation_mw' in clean_df.columns else clean_df.loc[clean_df['capacity_mw'].idxmax()]
+        fuel_breakdown_actual = clean_df.groupby('fuel')['actual_generation_mw'].sum().sort_values(ascending=False)
+        largest_plant = clean_df.loc[clean_df['actual_generation_mw'].idxmax()]
         
         # Display KPIs - Unified metric card style matching Fuel Mix tab
         col1, col2, col3, col4 = st.columns(4)
@@ -247,16 +252,16 @@ def render():
             <div class="metric-card">
                 <div class="metric-card-title">Total Plants</div>
                 <div class="metric-card-value">{total_plants:,}</div>
-                <div class="metric-card-subtitle">Texas Generation Facilities</div>
+                <div class="metric-card-subtitle">With Measured EIA-923 Data</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-card-title">Actual Generation ⓘ</div>
+                <div class="metric-card-title">Reported Generation ⓘ</div>
                 <div class="metric-card-value">{total_actual_gen:,.0f} MW</div>
-                <div class="metric-card-subtitle">Real Output (3-Month Avg)</div>
+                <div class="metric-card-subtitle">EIA-923 Facility-Fuel (3-mo avg)</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -265,14 +270,14 @@ def render():
             <div class="metric-card">
                 <div class="metric-card-title">Capacity Factor</div>
                 <div class="metric-card-value">{capacity_factor:.1f}%</div>
-                <div class="metric-card-subtitle">Actual vs Nameplate</div>
+                <div class="metric-card-subtitle">Reported vs Nameplate</div>
             </div>
             """, unsafe_allow_html=True)
         
         with col4:
             plant_name = largest_plant['plant_name']
             display_name = plant_name[:15] + "..." if len(plant_name) > 15 else plant_name
-            largest_gen = largest_plant.get('actual_generation_mw', largest_plant.get('capacity_mw', 0))
+            largest_gen = largest_plant['actual_generation_mw']
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Top Producer</div>
@@ -337,13 +342,14 @@ def render():
         storage_pct = (storage_actual / fuel_breakdown_actual.sum()) * 100
         
         st.markdown(f"""
-        - **Grid Scale**: Texas operates {total_plants:,} power plants generating {total_actual_gen:,.0f} MW average output
-        - **Nameplate vs. Actual**: Actual generation ({total_actual_gen:,.0f} MW) is {capacity_factor:.1f}% of nameplate capacity ({total_capacity:,.0f} MW)
-        - **Fuel Diversity**: {len(fuel_breakdown_actual)} different fuel types provide generation, including {int(fuel_breakdown_actual.get('STORAGE', 0)):,} MW of battery storage
-        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of actual generation
-        - **Battery Storage**: {int(storage_actual):,} MW of battery storage ({storage_pct:.1f}% of total generation) provides grid flexibility and reliability
-        - **Geographic Distribution**: Plants spread across all regions of Texas for grid reliability
-        - **Data Currency**: Live EIA data updated from official government sources
+        - **Grid Scale**: {total_plants:,} facilities with measured EIA-923 output and {total_capacity:,.0f} MW nameplate capacity
+        - **Generation Data**: {total_actual_gen:,.0f} MW average output from EIA facility-fuel (Jul–Sep 2024)
+        - **Nameplate vs. Output**: Reported output is {capacity_factor:.1f}% of nameplate capacity
+        - **Fuel Diversity**: {len(fuel_breakdown_actual)} fuel types in the measured dataset
+        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of reported generation
+        - **Battery Storage**: {int(storage_actual):,} MW ({storage_pct:.1f}% of reported generation)
+        - **Geographic Distribution**: EIA Form 860 Schedule 2 plant coordinates
+        - **Data Currency**: EIA operating capacity + facility-fuel; not real-time
         """)
         
         # Technical notes
@@ -353,13 +359,14 @@ def render():
             - Source: EIA Operating Generator Capacity API (electricity/operating-generator-capacity)
             - Coverage: All registered generators ≥1 MW in Texas (State ID: TX)
             - Aggregation: Individual generators grouped by plant facility
-            - Geocoding: Plant locations approximated using regional mapping
+            - Geocoding: EIA Form 860 Schedule 2 plant latitude/longitude (Plant Code join)
+            - Generation source: EIA facility-fuel (Form EIA-923), Jul–Sep 2024 average where available
             - Last Updated: {get_last_updated(df)[:19]}Z
             
             **Capacity Notes:**
             - **Nameplate Capacity**: Theoretical maximum output under ideal conditions ({total_capacity:,.0f} MW total)
-            - **Actual Generation**: Real output averages {total_actual_gen:,.0f} MW ({capacity_factor:.1f}% capacity factor)
-            - **Capacity Factor**: Varies by fuel type - gas plants ~50-60%, wind ~35%, solar ~25%, nuclear ~90%
+            - **Reported Generation**: Measured from EIA-923 facility-fuel only (plants without data excluded)
+            - **Capacity Factor**: Varies by fuel type - gas ~50-60%, wind ~35%, solar ~25%, nuclear ~90%
             - **Battery Storage**: Included as generation source - provides grid flexibility and demand response
             - **Not Real-Time**: These are 3-month averages, not current generation levels
             
@@ -374,7 +381,7 @@ def render():
             - Point size scaled by actual generation (not nameplate capacity)
             - Colors indicate primary fuel type
             - Interactive tooltips show plant details
-            - Geographic coordinates estimated for visualization purposes
+            - Geographic coordinates from EIA Form 860 (not approximated)
             """)
         
         # Render footer

@@ -1,8 +1,9 @@
 """
 EIA Plants ETL Script
 
-Fetches Texas power generation facility data from EIA API with enhanced robustness.
-Includes plant names, capacity, fuel types, and realistic geocoded locations.
+Fetches Texas power generation facility data from EIA API.
+Uses EIA-860 plant coordinates and EIA-923 facility-fuel measured generation only —
+no estimated or fabricated output values.
 
 Data source: U.S. Energy Information Administration (EIA) Operating Generator Capacity API
 Output: Parquet file with standardized Texas power plant data
@@ -41,8 +42,9 @@ LocationData = Dict[str, Union[float, str, List[str]]]
 # Constants
 API_BASE_URL: str = "https://api.eia.gov/v2"
 CAPACITY_ENDPOINT: str = "electricity/operating-generator-capacity"
-GENERATION_ENDPOINT: str = "electricity/electric-power-operational-data"
+FACILITY_FUEL_ENDPOINT: str = "electricity/facility-fuel"
 DATA_DIR: Path = Path(__file__).parent.parent / "data"
+PLANT_LOCATIONS_PATH: Path = DATA_DIR / "eia860_plant_locations.parquet"
 MAX_RETRIES: int = 3
 BACKOFF_FACTOR: float = 0.3
 REQUEST_TIMEOUT: int = 30
@@ -225,126 +227,157 @@ def fetch_texas_generators(api_key: str) -> pd.DataFrame:
     
     # Create DataFrame and validate schema
     df = pd.DataFrame(all_data)
+    if 'plantid' in df.columns:
+        df['plant_code'] = df['plantid'].astype(str)
     validate_input_schema(df)
     
     return df
 
 
+def load_plant_coordinates() -> pd.DataFrame:
+    """
+    Load cached EIA-860 plant coordinates for Texas.
+
+    Source: 2___Plant_Yyyyy.xlsx from Form EIA-860 (Plant Code, Latitude, Longitude).
+    """
+    if not PLANT_LOCATIONS_PATH.exists():
+        raise ETLValidationError(
+            f"Plant coordinate cache missing: {PLANT_LOCATIONS_PATH}. "
+            "Regenerate from EIA-860 Plant schedule (2___Plant_Yyyyy.xlsx)."
+        )
+
+    coords = pd.read_parquet(PLANT_LOCATIONS_PATH)
+    coords['plant_code'] = coords['plant_code'].astype(str)
+    coords['lat'] = pd.to_numeric(coords['lat'], errors='coerce')
+    coords['lon'] = pd.to_numeric(coords['lon'], errors='coerce')
+    coords = coords.dropna(subset=['lat', 'lon']).drop_duplicates(subset=['plant_code'], keep='first')
+    return coords[['plant_code', 'lat', 'lon']]
+
+
+def attach_plant_coordinates(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Join real EIA-860 plant coordinates by plant code.
+
+    Plants without coordinates are dropped rather than assigned fake locations.
+    """
+    df = df.copy()
+    if 'plant_code' not in df.columns:
+        if 'plantid' in df.columns:
+            df['plant_code'] = df['plantid'].astype(str)
+        elif 'plantCode' in df.columns:
+            df['plant_code'] = df['plantCode'].astype(str)
+        else:
+            raise ETLValidationError("Cannot attach coordinates: plant_code/plantid missing")
+
+    coords = load_plant_coordinates()
+    merged = df.merge(coords, on='plant_code', how='left')
+
+    missing = merged['lat'].isna().sum()
+    if missing:
+        logger.warning(
+            "Dropping %s generator rows with no EIA-860 coordinates (plant_code not in cache)",
+            missing,
+        )
+        merged = merged.dropna(subset=['lat', 'lon'])
+
+    validate_coordinates(merged)
+    logger.info("Attached real coordinates for %s generator rows", len(merged))
+    return merged
+
+
 def fetch_actual_generation(api_key: str) -> pd.DataFrame:
     """
-    Fetch actual generation data (not nameplate capacity) from EIA API.
-    
-    This uses EIA-923 data which reports actual electricity generation in MWh.
-    We'll get the last 3 months of data and average it to get realistic generation.
-    
-    Args:
-        api_key: EIA API key
-        
-    Returns:
-        DataFrame with plant_id and actual_generation_mw columns
-        
-    Raises:
-        EIAAPIError: If API request fails
+    Fetch plant-level actual generation from EIA facility-fuel (Form EIA-923).
+
+    Uses plant totals (fuel2002=ALL, primeMover=ALL) and averages the requested
+    months, converting monthly MWh to average MW.
     """
-    logger.info("Fetching actual generation data from EIA API")
-    
+    logger.info("Fetching actual generation from EIA facility-fuel API")
+
     all_data: List[Dict] = []
     offset = 0
     length = 5000
-    
+    start_date = '2024-07'
+    end_date = '2024-09'
+
     session = create_http_session()
-    
+
     try:
-        # Calculate date range: last 3 months of available data
-        # Using 2024 data (most recent complete year as of Jan 2026)
-        start_date = '2024-07'  # July 2024
-        end_date = '2024-09'    # September 2024 (3 months)
-        
         while True:
-            # Build API request for actual generation
-            url = f"{API_BASE_URL}/{GENERATION_ENDPOINT}/data/"
+            url = f"{API_BASE_URL}/{FACILITY_FUEL_ENDPOINT}/data/"
             params = {
                 'api_key': api_key,
                 'frequency': 'monthly',
-                'data[0]': 'generation',  # Actual generation in MWh
-                'facets[location][]': 'TX',  # Texas only
-                'facets[sectorid][]': '99',  # All sectors
+                'data[0]': 'generation',
+                'facets[state][]': 'TX',
                 'start': start_date,
                 'end': end_date,
                 'offset': offset,
                 'length': length,
             }
-            
-            logger.debug(f"Fetching generation data offset {offset}")
-            
+
             try:
                 response = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
                 response.raise_for_status()
             except requests.RequestException as e:
-                logger.warning(f"Generation API request failed at offset {offset}: {e}")
-                # Generation data is optional - if it fails, we'll continue with capacity only
+                logger.warning("facility-fuel request failed at offset %s: %s", offset, e)
                 break
-            
+
             try:
                 result = response.json()
             except ValueError as e:
-                logger.warning(f"Invalid JSON in generation response: {e}")
+                logger.warning("Invalid JSON in facility-fuel response: %s", e)
                 break
-            
-            # Validate response
+
             if 'response' not in result or 'data' not in result['response']:
-                logger.warning("Invalid generation API response structure")
+                logger.warning("Invalid facility-fuel API response structure")
                 break
-            
+
             data = result['response']['data']
             if not data:
-                break  # No more data
-            
+                break
+
             all_data.extend(data)
-            
-            # Check if there's more data
+
             total = int(result['response'].get('total', 0))
             if offset + length >= total:
                 break
-            
+
             offset += length
             time.sleep(RATE_LIMIT_DELAY)
-            
+
     finally:
         session.close()
-    
-    logger.info(f"Retrieved {len(all_data)} generation records")
-    
+
+    logger.info("Retrieved %s facility-fuel records", len(all_data))
+
     if not all_data:
-        logger.warning("No actual generation data available - will use nameplate capacity only")
-        return pd.DataFrame()  # Return empty DataFrame
-    
-    # Create DataFrame
+        logger.warning("No facility-fuel generation data available")
+        return pd.DataFrame()
+
     df = pd.DataFrame(all_data)
-    
-    # The API returns generation in MWh per month
-    # We need to convert to average MW (MWh / hours in month)
-    if 'generation' in df.columns and 'plantCode' in df.columns:
-        df['generation'] = pd.to_numeric(df['generation'], errors='coerce')
-        
-        # Average over 3 months, convert MWh to MW
-        # Approximate: 730 hours per month average
-        df_grouped = df.groupby('plantCode').agg({
-            'generation': 'mean'  # Average MWh per month
-        }).reset_index()
-        
-        # Convert monthly MWh to average MW (MWh / 730 hours)
-        df_grouped['actual_generation_mw'] = df_grouped['generation'] / 730.0
-        
-        # Remove plants with zero or negative generation
-        df_grouped = df_grouped[df_grouped['actual_generation_mw'] > 0]
-        
-        logger.info(f"Calculated actual generation for {len(df_grouped)} plants")
-        
-        return df_grouped[['plantCode', 'actual_generation_mw']]
-    
-    logger.warning("Generation data missing required columns")
-    return pd.DataFrame()
+
+    required = {'plantCode', 'generation', 'fuel2002', 'primeMover'}
+    if not required.issubset(df.columns):
+        logger.warning("facility-fuel data missing required columns: %s", required - set(df.columns))
+        return pd.DataFrame()
+
+    plant_totals = df[(df['fuel2002'] == 'ALL') & (df['primeMover'] == 'ALL')].copy()
+    if plant_totals.empty:
+        logger.warning("No plant-level ALL/ALL totals in facility-fuel response")
+        return pd.DataFrame()
+
+    plant_totals['generation'] = pd.to_numeric(plant_totals['generation'], errors='coerce')
+    plant_totals['plantCode'] = plant_totals['plantCode'].astype(str)
+
+    df_grouped = plant_totals.groupby('plantCode', as_index=False).agg(
+        generation=('generation', 'mean')
+    )
+    df_grouped['actual_generation_mw'] = df_grouped['generation'] / 730.0
+    df_grouped = df_grouped[df_grouped['actual_generation_mw'] > 0]
+
+    logger.info("Calculated actual generation for %s plants", len(df_grouped))
+    return df_grouped[['plantCode', 'actual_generation_mw']]
 
 
 def validate_input_schema(df: pd.DataFrame) -> None:
@@ -445,53 +478,8 @@ def get_texas_locations() -> List[CoordinateTuple]:
 
 
 def geocode_plant_locations(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Add realistic coordinates using actual Texas geography.
-    
-    Args:
-        df: DataFrame with plant data
-        
-    Returns:
-        DataFrame with realistic lat/lon coordinates
-    """
-    logger.info("Adding realistic Texas geographic coordinates")
-    
-    locations = get_texas_locations()
-    
-    def assign_realistic_coordinates(plant_name: str) -> CoordinateTuple:
-        """Assign coordinates based on plant name and realistic distribution."""
-        # Create deterministic but varied assignment
-        name_hash = hash(str(plant_name)) % len(locations)
-        base_lat, base_lon, location_name = locations[name_hash]
-        
-        # Add realistic scatter within ~20 mile radius
-        scatter_hash = hash(str(plant_name) + "_scatter")
-        lat_offset = ((scatter_hash % 1000) - 500) / 1000 * 0.3  # ~20 mile radius
-        lon_offset = (((scatter_hash // 1000) % 1000) - 500) / 1000 * 0.3
-        
-        final_lat = base_lat + lat_offset
-        final_lon = base_lon + lon_offset
-        
-        # Ensure coordinates stay within Texas bounds
-        final_lat = max(TEXAS_BOUNDS['lat_min'], min(TEXAS_BOUNDS['lat_max'], final_lat))
-        final_lon = max(TEXAS_BOUNDS['lon_min'], min(TEXAS_BOUNDS['lon_max'], final_lon))
-        
-        return final_lat, final_lon, location_name
-    
-    # Apply geocoding
-    df = df.copy()
-    geo_results = df['plantName'].apply(assign_realistic_coordinates)
-    
-    df['lat'] = [result[0] for result in geo_results]
-    df['lon'] = [result[1] for result in geo_results]
-    df['base_location'] = [result[2] for result in geo_results]
-    
-    # Validate coordinates are within Texas
-    validate_coordinates(df)
-    
-    logger.info(f"Geocoded {len(df)} plants across {len(df['base_location'].unique())} regions")
-    
-    return df
+    """Attach EIA-860 plant coordinates (legacy name kept for tests)."""
+    return attach_plant_coordinates(df)
 
 
 def validate_coordinates(df: pd.DataFrame) -> None:
@@ -624,22 +612,15 @@ def transform_to_canonical_schema(df: pd.DataFrame, generation_df: Optional[pd.D
     """
     logger.info("Transforming to canonical schema")
     
-    # Check if plantCode is available for merging with generation data
-    has_plant_code = 'plantCode' in df.columns
+    # Check if plant code is available for merging with generation data
+    has_plant_code = 'plant_code' in df.columns
     
+    group_keys = ['plantName', 'lat', 'lon', 'fuel']
+    agg_spec = {'nameplate-capacity-mw': 'sum'}
     if has_plant_code:
-        # Group by plant and aggregate generators (with plant code)
-        df_grouped = df.groupby(['plantName', 'lat', 'lon', 'fuel']).agg({
-            'nameplate-capacity-mw': 'sum',
-            'base_location': 'first',
-            'plantCode': 'first'  # Keep plant code for merging with generation data
-        }).reset_index()
-    else:
-        # Group without plant code
-        df_grouped = df.groupby(['plantName', 'lat', 'lon', 'fuel']).agg({
-            'nameplate-capacity-mw': 'sum',
-            'base_location': 'first'
-        }).reset_index()
+        agg_spec['plant_code'] = 'first'
+
+    df_grouped = df.groupby(group_keys).agg(agg_spec).reset_index()
     
     # Create canonical schema base
     canonical_df = pd.DataFrame({
@@ -651,34 +632,41 @@ def transform_to_canonical_schema(df: pd.DataFrame, generation_df: Optional[pd.D
         'last_updated': datetime.now(timezone.utc).isoformat()
     })
     
-    # Add plant_code if available
     if has_plant_code:
-        canonical_df['plant_code'] = df_grouped['plantCode']
+        canonical_df['plant_code'] = df_grouped['plant_code'].astype(str)
     
-    # Merge actual generation data if available and we have plant codes
-    if generation_df is not None and not generation_df.empty and has_plant_code:
-        logger.info(f"Merging actual generation data for {len(generation_df)} plants")
-        canonical_df = canonical_df.merge(
-            generation_df[['plantCode', 'actual_generation_mw']],
-            left_on='plant_code',
-            right_on='plantCode',
-            how='left'
+    # Merge measured generation (required — no estimates or fabrication)
+    if generation_df is None or generation_df.empty:
+        raise ETLValidationError(
+            "Measured generation data required from EIA facility-fuel; refusing to fabricate values"
         )
-        canonical_df.drop('plantCode', axis=1, errors='ignore')
-        
-        # Fill missing actual generation with estimated value (70% of capacity as industry avg)
-        missing_gen = canonical_df['actual_generation_mw'].isna()
-        if missing_gen.any():
-            logger.info(f"Estimating generation for {missing_gen.sum()} plants without actual data")
-            canonical_df.loc[missing_gen, 'actual_generation_mw'] = canonical_df.loc[missing_gen, 'capacity_mw'] * 0.70
-        
-        # Log how many plants got real vs estimated data
-        real_data_count = (~canonical_df['actual_generation_mw'].isna()).sum() - missing_gen.sum()
-        logger.info(f"Real generation data: {real_data_count} plants, Estimated: {missing_gen.sum()} plants")
-    else:
-        logger.warning("No actual generation data available - estimating from capacity")
-        # Estimate: average capacity factor of 70% across all plants
-        canonical_df['actual_generation_mw'] = canonical_df['capacity_mw'] * 0.70
+    if not has_plant_code:
+        raise ETLValidationError("plant_code required to join facility-fuel generation data")
+
+    generation_df = generation_df.copy()
+    generation_df['plantCode'] = generation_df['plantCode'].astype(str)
+    logger.info("Merging measured generation for %s plants", len(generation_df))
+    canonical_df = canonical_df.merge(
+        generation_df[['plantCode', 'actual_generation_mw']],
+        left_on='plant_code',
+        right_on='plantCode',
+        how='inner',
+    )
+    canonical_df.drop(columns=['plantCode'], inplace=True, errors='ignore')
+
+    if canonical_df.empty:
+        raise ETLValidationError("No facilities matched measured EIA facility-fuel generation")
+
+    # facility-fuel is plant-level; allocate measured MW across fuel rows by capacity share
+    plant_capacity = canonical_df.groupby('plant_code')['capacity_mw'].transform('sum')
+    plant_generation = canonical_df.groupby('plant_code')['actual_generation_mw'].transform('first')
+    canonical_df['actual_generation_mw'] = plant_generation * (
+        canonical_df['capacity_mw'] / plant_capacity
+    )
+    canonical_df['generation_is_estimated'] = False
+
+    measured = len(canonical_df)
+    logger.info("Output contains %s plant/fuel rows with measured generation only", measured)
     
     # Validate data types
     canonical_df['capacity_mw'] = pd.to_numeric(canonical_df['capacity_mw'], errors='coerce')
@@ -783,21 +771,16 @@ def main() -> None:
         raw_df = fetch_texas_generators(api_key)
         logger.info(f"Fetched {len(raw_df)} generator records")
         
-        # Fetch actual generation data (optional - may fail gracefully)
-        try:
-            generation_df = fetch_actual_generation(api_key)
-            if not generation_df.empty:
-                logger.info(f"Fetched actual generation for {len(generation_df)} plants")
-            else:
-                logger.info("Using estimated generation based on capacity factors")
-                generation_df = None
-        except Exception as e:
-            logger.warning(f"Could not fetch actual generation data: {e}")
-            logger.info("Will estimate generation from nameplate capacity")
-            generation_df = None
+        # Fetch measured generation (required)
+        generation_df = fetch_actual_generation(api_key)
+        if generation_df.empty:
+            raise ETLValidationError(
+                "EIA facility-fuel returned no measured generation data"
+            )
+        logger.info("Fetched measured generation for %s plants", len(generation_df))
         
-        # Add geographic coordinates
-        geo_df = geocode_plant_locations(raw_df)
+        # Add geographic coordinates from EIA-860 plant registry
+        geo_df = attach_plant_coordinates(raw_df)
         
         # Normalize fuel types
         fuel_df = normalize_fuel_types(geo_df)

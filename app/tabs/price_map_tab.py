@@ -173,6 +173,7 @@ def render():
             'Very Low': '#ff9682',   # Light coral
             'Low': '#ff7864',        # Coral
             'Medium': '#ff5a46',     # Red-coral
+            'Normal': '#ff5a46',     # Uniform-price snapshot (zero spread)
             'High': '#e63c32',       # Deep red
             'Very High': '#c81e1e',  # Dark red
         }
@@ -183,8 +184,11 @@ def render():
         # Create Plotly figure
         fig = go.Figure()
         
-        # Add scatter points for each price level (for legend)
-        for level in ['Very Low', 'Low', 'Medium', 'High', 'Very High']:
+        # Plot every quantile label actually present — including 'Normal'
+        # when all zones share the same price (previously skipped, blank map).
+        legend_order = ['Very Low', 'Low', 'Medium', 'Normal', 'High', 'Very High']
+        levels_present = [lvl for lvl in legend_order if lvl in set(df['price_quantile'])]
+        for level in levels_present:
             df_level = df[df['price_quantile'] == level]
             if len(df_level) > 0:
                 fig.add_trace(go.Scattermapbox(

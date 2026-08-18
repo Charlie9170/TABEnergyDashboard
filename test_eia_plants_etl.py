@@ -199,36 +199,46 @@ class TestGeocoding:
             assert city in location_names
     
     def test_geocode_plant_locations_deterministic(self):
-        """Test that geocoding produces deterministic results."""
+        """Test that EIA-860 coordinate joins are stable."""
         df = pd.DataFrame({
-            'plantName': ['Test Plant A', 'Test Plant B']
+            'plantName': ['W A Parish', 'W A Parish'],
+            'plant_code': ['3470', '3470'],
         })
         
         result1 = geocode_plant_locations(df)
         result2 = geocode_plant_locations(df)
         
-        # Results should be identical (deterministic)
         pd.testing.assert_frame_equal(result1, result2)
     
     def test_geocode_plant_locations_within_texas(self):
-        """Test that all geocoded locations are within Texas bounds."""
+        """Test that joined EIA-860 coordinates are within Texas bounds."""
         df = pd.DataFrame({
-            'plantName': ['Plant A', 'Plant B', 'Plant C']
+            'plantName': ['W A Parish'],
+            'plant_code': ['3470'],
         })
         
         result = geocode_plant_locations(df)
         
-        # All coordinates should be within Texas bounds
         assert (result['lat'] >= TEXAS_BOUNDS['lat_min']).all()
         assert (result['lat'] <= TEXAS_BOUNDS['lat_max']).all()
         assert (result['lon'] >= TEXAS_BOUNDS['lon_min']).all()
         assert (result['lon'] <= TEXAS_BOUNDS['lon_max']).all()
+        assert abs(result['lat'].iloc[0] - 29.4828) < 0.01
+
+
+@pytest.fixture
+def sample_generation_data():
+    """Measured facility-fuel rows for transform tests."""
+    return pd.DataFrame({
+        'plantCode': ['100', '101', '102', '200', '3470', '6145', '54979'],
+        'actual_generation_mw': [50.0, 5.0, 800.0, 25.0, 1800.0, 2100.0, 150.0],
+    })
 
 
 class TestTransformation:
     """Test data transformation functionality."""
     
-    def test_transform_to_canonical_schema_aggregation(self):
+    def test_transform_to_canonical_schema_aggregation(self, sample_generation_data):
         """Test that transformation properly aggregates by plant and fuel."""
         df = pd.DataFrame({
             'plantName': ['Plant A', 'Plant A', 'Plant B'],
@@ -236,12 +246,10 @@ class TestTransformation:
             'lon': [-97.0, -97.0, -96.0],
             'fuel': ['GAS', 'GAS', 'SOLAR'],
             'nameplate-capacity-mw': [100.0, 200.0, 50.0],
-            'base_location': ['Austin', 'Austin', 'Dallas']
+            'plant_code': ['100', '100', '200'],
         })
         
-        result = transform_to_canonical_schema(df)
-        
-        # Should aggregate Plant A's two GAS units
+        result = transform_to_canonical_schema(df, sample_generation_data)
         assert len(result) == 2
         
         # Find Plant A row
@@ -257,12 +265,11 @@ class TestTransformation:
             'lon': [-97.0],
             'fuel': ['GAS'],
             'nameplate-capacity-mw': [100.0],
-            'base_location': ['Austin']
+            'plant_code': ['100'],
         })
         
-        result = transform_to_canonical_schema(df)
-        
-        # Check all required columns are present
+        gen = pd.DataFrame({'plantCode': ['100'], 'actual_generation_mw': [70.0]})
+        result = transform_to_canonical_schema(df, gen)
         for col in REQUIRED_OUTPUT_COLUMNS:
             assert col in result.columns
         
@@ -279,14 +286,30 @@ class TestTransformation:
             'lon': [-97.0, -96.0],
             'fuel': ['SOLAR', 'GAS'],
             'nameplate-capacity-mw': [10.0, 1000.0],
-            'base_location': ['Austin', 'Dallas']
+            'plant_code': ['101', '102'],
         })
         
-        result = transform_to_canonical_schema(df)
+        gen = pd.DataFrame({
+            'plantCode': ['101', '102'],
+            'actual_generation_mw': [5.0, 800.0],
+        })
+        result = transform_to_canonical_schema(df, gen)
         
-        # Should be sorted by capacity (largest first)
-        assert result['capacity_mw'].iloc[0] == 1000.0
-        assert result['capacity_mw'].iloc[1] == 10.0
+        # Should be sorted by actual generation (largest first)
+        assert result['actual_generation_mw'].iloc[0] > result['actual_generation_mw'].iloc[1]
+
+    def test_transform_requires_measured_generation(self):
+        """Transform must fail rather than fabricate generation."""
+        df = pd.DataFrame({
+            'plantName': ['Plant A'],
+            'lat': [30.0],
+            'lon': [-97.0],
+            'fuel': ['GAS'],
+            'nameplate-capacity-mw': [100.0],
+            'plant_code': ['999'],
+        })
+        with pytest.raises(ETLValidationError, match="Measured generation data required"):
+            transform_to_canonical_schema(df, None)
 
 
 class TestFileOperations:
@@ -336,20 +359,27 @@ class TestIntegration:
         """Test complete transformation pipeline with realistic data."""
         # Create sample EIA-style data
         raw_data = pd.DataFrame({
-            'plantName': ['Houston Solar Farm', 'Dallas Gas Plant', 'Austin Wind Farm'],
-            'technology': ['Solar Photovoltaic', 'Natural Gas Combined Cycle', 'Onshore Wind Turbine'],
-            'nameplate-capacity-mw': [100.0, 500.0, 200.0]
+            'plantName': ['W A Parish', 'Comanche Peak', 'Sweetwater Wind'],
+            'technology': [
+                'Natural Gas Combined Cycle',
+                'Conventional Nuclear',
+                'Onshore Wind Turbine',
+            ],
+            'nameplate-capacity-mw': [500.0, 2430.0, 200.0],
+            'plant_code': ['3470', '6145', '54979'],
         })
         
         # Run through the pipeline
         geo_df = geocode_plant_locations(raw_data)
         fuel_df = normalize_fuel_types(geo_df)
-        final_df = transform_to_canonical_schema(fuel_df)
+        gen = pd.DataFrame({
+            'plantCode': ['3470', '6145', '54979'],
+            'actual_generation_mw': [1800.0, 2100.0, 150.0],
+        })
+        final_df = transform_to_canonical_schema(fuel_df, gen)
         
-        # Validate final result
         assert len(final_df) == 3
-        assert set(final_df['fuel']) == {'SOLAR', 'GAS', 'WIND'}
-        assert final_df['capacity_mw'].sum() == 800.0
+        assert set(final_df['fuel']) == {'GAS', 'NUCLEAR', 'WIND'}
         
         # All coordinates should be in Texas
         validate_coordinates(final_df)
@@ -377,13 +407,12 @@ class TestErrorHandling:
             'lat': [30.0, 32.0],
             'lon': [-97.0, -96.0],
             'fuel': ['GAS', 'SOLAR'],
-            'nameplate-capacity-mw': [100.0, None],  # None value
-            'base_location': ['Austin', 'Dallas']
+            'nameplate-capacity-mw': [100.0, None],
+            'plant_code': ['100', '101'],
         })
         
-        result = transform_to_canonical_schema(df)
-        
-        # Should drop rows with invalid capacity
+        gen = pd.DataFrame({'plantCode': ['100'], 'actual_generation_mw': [70.0]})
+        result = transform_to_canonical_schema(df, gen)
         assert len(result) == 1
         assert result['plant_name'].iloc[0] == 'Plant A'
 
