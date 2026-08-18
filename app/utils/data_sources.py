@@ -37,11 +37,10 @@ DATA_SOURCES = {
     'queue': {
         'status': 'live',
         'source': 'Electric Reliability Council of Texas (ERCOT)',
-        'api': 'ERCOT Capacity, Demand and Reserves (CDR) Report',
-        'coverage': 'Planned generation projects in interconnection queue',
-        'update_frequency': 'Monthly via ERCOT CDR Report publication',
-        'url': 'https://www.ercot.com/gridinfo/resource',
-        'data_file': 'CapacityDemandandReservesReport_May2025_Revised.xlsx'
+        'api': 'ERCOT Generator Interconnection Status (GIS) Report',
+        'coverage': 'Active interconnection queue (Large + Small Generator projects)',
+        'update_frequency': 'Monthly via ERCOT GIS Report publication; ETL checks every 6 hours',
+        'url': 'https://www.ercot.com/mp/data-products/data-product-details?id=PG7-200-ER',
     },
     'minerals': {
         'status': 'live',

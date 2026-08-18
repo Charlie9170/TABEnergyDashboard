@@ -17,7 +17,7 @@
 | **5** | Fix facility-fuel generation join | **DONE** — measured data in committed parquet |
 | **6** | Honest generation labeling | **DONE** — `generation_is_estimated`, no 70% fallback in tab/ETL |
 | **7** | Queue freshness labeling | **DONE** |
-| **8** | Dynamic CDR queue source | **OPEN** |
+| **8** | Dynamic CDR queue source | **DONE** — replaced with monthly ERCOT GIS Report (`etl/ercot_gis_queue_etl.py`), branch `task-8-gis`, not yet merged/committed as of this entry |
 | **9** | Fix `refresh_all_data.sh` | **DONE** — calls `ercot_lmp_etl.py`, not demo `price_map_etl.py` |
 | **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |
 | **11** | Fix workflow commit/push git strategy | **DONE** — concurrency, pull-before-ETL, push retry (`2bac401`) |
@@ -41,7 +41,7 @@
 | Signal | Evidence | Source |
 |--------|----------|--------|
 | `minerals_deposits.parquet` has only 1 row | Sparse data | *(verified: parquet inspection)* |
-| `data/ercot_cdr_may2025.xlsx` is a May 2025 snapshot | Filename and content imply staleness | *(verified: filename)* |
+| `data/ercot_cdr_may2025.xlsx` is a May 2025 snapshot | Retired — no longer read by the active pipeline; superseded by `etl/ercot_gis_queue_etl.py` (Task 8). File and its ETL (`etl/ercot_queue_etl.py`) left in place, archived. | *(verified: `etl/ercot_gis_queue_etl.py`, `etl/ercot_queue_etl.py` module docstring)* |
 | Disabled legacy workflow `.github/workflows/etl-old.yml` | Schedule removed, workflow_dispatch only | *(verified: `.github/workflows/etl-old.yml`)* |
 | Committed `generation.parquet` predates P0 ETL fixes | Resolved — see audit table above | *(verified: CI run 32095361711)* |
 
@@ -124,7 +124,6 @@ The `README.md` project structure diagram lists several items that are outdated:
 
 | Risk | Details |
 |------|---------|
-| `data/ercot_cdr_may2025.xlsx` | May 2025 snapshot; queue data may be stale unless CDR download succeeds |
 | `minerals_deposits.parquet` has 1 row | Effectively empty; minerals tab will render minimal content |
 | ERCOT HTML scraping | ERCOT may change their HTML format, breaking `ercot_lmp_etl.py` |
 | LinkedIn CDN logo URL | Logo loaded from LinkedIn CDN at runtime; may break if URL changes |
@@ -142,9 +141,9 @@ The `README.md` project structure diagram lists several items that are outdated:
 | README project structure is significantly outdated | `README.md` | Low |
 | Multiple `.backup` files committed to repository | Various | Low |
 | `minerals_deposits.parquet` has only 1 row | `data/` | Medium — minerals tab shows almost nothing |
-| `data/ercot_cdr_may2025.xlsx` will become stale | `data/` | Medium |
-| `app/utils/schema.py` canonical schema for `queue` uses `fuel`/`proposed_mw` but actual parquet uses `fuel_type`/`capacity_mw` | `app/utils/schema.py` | Medium — column aliases bridge this but creates hidden coupling |
+| `app/utils/schema.py` canonical schema for `queue` uses `fuel`/`proposed_mw` but actual parquet uses `fuel_type`/`capacity_mw` | `app/utils/schema.py` | Medium — column aliases bridge this but creates hidden coupling (still applies to the GIS pipeline's output) |
 | `etl/interconnection_etl.py` stub not removed | `etl/` | Low |
+| `etl/texas_counties.py` `TEXAS_COUNTY_CENTROIDS` is missing at least one real county ("Sterling") | `etl/texas_counties.py` | Low — falls back to the Texas centroid gracefully (no crash), but those projects render at the state centroid instead of their actual county; discovered running `ercot_gis_queue_etl.py` against the July 2026 GIS Report |
 
 ---
 
@@ -153,7 +152,7 @@ The `README.md` project structure diagram lists several items that are outdated:
 - `data/fuelmix.parquet` — 1,384 rows, 4 columns *(verified: parquet inspection)*
 - `data/generation.parquet` — 415 rows, measured EIA-923 data *(verified: CI run 32095361711)*
 - `data/price_map.parquet` — 15 rows (one per settlement point), 11 columns *(verified: parquet inspection)*
-- `data/queue.parquet` — 281 rows, 11 columns *(verified: parquet inspection)*
+- `data/queue.parquet` — 1,827 rows (1,797 Large Gen + 30 Small Gen), 18 columns, ERCOT GIS Report (July 2026) *(verified: local run of `etl/ercot_gis_queue_etl.py`, 2026-08-18, branch `task-8-gis`, not yet committed)*
 
 ---
 

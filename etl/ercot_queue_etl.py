@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+DEPRECATED — ARCHIVED, DO NOT RUN AS PART OF THE PRODUCTION PIPELINE.
+
+Replaced by etl/ercot_gis_queue_etl.py (Task 8), which pulls ERCOT's monthly
+Generator Interconnection Status (GIS) Report — the real, regularly-updated
+interconnection queue — instead of this script's single hardcoded May 2025
+CDR snapshot. Not wired into .github/workflows/etl.yml. Kept in the repo for
+reference and because ercot_gis_queue_etl.py imports two of its helpers
+(get_county_coordinates_for_project, atomic_write_parquet), which are
+source-agnostic and were not reimplemented.
+
+Original docstring follows.
+---
 ERCOT Interconnection Queue ETL Script
 
 This script downloads and processes ERCOT Capacity, Demand and Reserves (CDR) report

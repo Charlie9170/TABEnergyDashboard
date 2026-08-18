@@ -47,6 +47,10 @@ env/
 # data/*.parquet  # DISABLED - Allow parquet files for automated dashboard updates
 data/*.csv
 data/*.json
+# GIS queue ETL provenance sidecar (Task 8) — small, human-readable,
+# committed alongside queue.parquet so the validation gate and About tab
+# can read the source report's own totals without re-fetching it.
+!data/queue_gis_metadata.json
 
 # Temporary files
 *.tmp

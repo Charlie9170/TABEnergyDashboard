@@ -54,7 +54,8 @@ TABEnergyDashboard/
 │   ├── minerals_deposits.parquet
 │   ├── price_map.parquet
 │   ├── queue.parquet
-│   └── ercot_cdr_may2025.xlsx  # Raw ERCOT CDR source for queue ETL
+│   ├── queue_gis_metadata.json # GIS Report provenance + source totals (Task 8)
+│   └── ercot_cdr_may2025.xlsx  # Raw ERCOT CDR source — retired, kept for reference (see ercot_queue_etl.py)
 ├── etl/                        # Data extraction/transform scripts
 │   ├── convert_shapefile.py
 │   ├── demo_fuelmix_data.py    # Fallback demo data generator
@@ -62,7 +63,8 @@ TABEnergyDashboard/
 │   ├── eia_plants_etl.py       # EIA generation facilities (production)
 │   ├── ercot_lmp_etl.py        # ERCOT real-time prices (production)
 │   ├── ercot_lmp_etl.py.backup # ← backup artifact
-│   ├── ercot_queue_etl.py      # ERCOT CDR queue (production)
+│   ├── ercot_gis_queue_etl.py  # ERCOT GIS Report queue (production, Task 8)
+│   ├── ercot_queue_etl.py      # ← DEPRECATED (ERCOT CDR queue); archived, imported for its geocoding/write helpers
 │   ├── interconnection_etl.py  # ← stub (empty schema only)
 │   ├── mineral_etl.py          # Minerals (production)
 │   ├── price_map_etl.py        # ← demo data stub
@@ -70,7 +72,9 @@ TABEnergyDashboard/
 ├── scripts/
 │   ├── auto_commit.sh
 │   ├── download_usgs_minerals.py
-│   └── validate_data.py
+│   ├── validate_data.py
+│   ├── validate_generation_parquet.py    # CI gate, run after EIA Plants ETL
+│   └── validate_gis_queue_parquet.py     # CI gate, run after GIS Queue ETL (Task 8)
 ├── docs/
 │   ├── ai/                     # ← THIS directory
 │   └── *.md                    # Legacy implementation notes
@@ -195,7 +199,8 @@ See [`DATA_SOURCES.md`](DATA_SOURCES.md) for the full schema table for each data
 | `etl/eia_fuelmix_etl.py` | Production | `data/fuelmix.parquet` | EIA v2 API |
 | `etl/ercot_lmp_etl.py` | Production | `data/price_map.parquet` | ERCOT public HTML |
 | `etl/eia_plants_etl.py` | Production | `data/generation.parquet` | EIA v2 API |
-| `etl/ercot_queue_etl.py` | Production | `data/queue.parquet` | ERCOT CDR Excel |
+| `etl/ercot_gis_queue_etl.py` | Production | `data/queue.parquet`, `data/queue_gis_metadata.json` | ERCOT GIS Report (monthly) |
+| `etl/ercot_queue_etl.py` | **Deprecated** (archived) | — not run | ERCOT CDR Excel — retired, see module docstring |
 | `etl/mineral_etl.py` | Production | `data/minerals_deposits.parquet` | Manual curation |
 | `etl/price_map_etl.py` | Demo stub | `data/price_map.parquet` | Hardcoded demo |
 | `etl/interconnection_etl.py` | Empty stub | `data/queue.parquet` (empty) | N/A |

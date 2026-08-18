@@ -48,19 +48,21 @@ jobs:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python etl/eia_plants_etl.py
 
-      - name: Run Queue ETL
-        run: python etl/ercot_queue_etl.py
-        continue-on-error: true
+      - name: Run GIS Queue ETL
+        run: python etl/ercot_gis_queue_etl.py
 
       - name: Validate generation parquet
         run: python scripts/validate_generation_parquet.py
+
+      - name: Validate GIS queue parquet
+        run: python scripts/validate_gis_queue_parquet.py
 
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add data/*.parquet || true
+          git add data/*.parquet data/queue_gis_metadata.json || true
 
           echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .streamlit_trigger
           git add .streamlit_trigger

@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import math
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -20,6 +21,49 @@ from utils.data_sources import render_data_source_footer
 from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
+
+# Default view = projects with a signed interconnection agreement (SGIA / IA).
+# ERCOT Planning Guide §5.1.1: a "large generator" is ≥10 MW; GIS already splits
+# Large vs Small Gen on that line. Texas SB6 / 16 TAC §25.194's 75 MW threshold
+# applies to large *loads* (Batch Zero), not generator interconnection.
+# IA signed is a study-process milestone, not a guarantee of construction.
+COMMITTED_STATUS = "Interconnection Agreement Signed"
+
+
+def texas_mappable_mask(df: pd.DataFrame) -> pd.Series:
+    """Rows with coordinates inside Texas bounds (map-only filter)."""
+    return (
+        df['lat'].notna() & df['lon'].notna() &
+        (df['lat'] >= 25.8) & (df['lat'] <= 36.5) &
+        (df['lon'] >= -106.7) & (df['lon'] <= -93.5)
+    )
+
+
+def select_queue_view(df: pd.DataFrame, show_full_queue: bool) -> pd.DataFrame:
+    """Headline/table set. Default: signed IA. Full toggle: every parsed row."""
+    if show_full_queue:
+        return df.copy()
+    return df[df['status'] == COMMITTED_STATUS].copy()
+
+
+def gis_public_vs_summary_caption(parsed_rows: int) -> Optional[str]:
+    """One-line coverage note: public detail-sheet rows vs Summary-sheet total."""
+    meta_path = Path(__file__).parent.parent.parent / "data" / "queue_gis_metadata.json"
+    if not meta_path.exists():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text())
+        source_n = int(meta["source_total_interconnection_requests"])
+        public_n = int(meta.get("parsed_public_detail_rows", parsed_rows))
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+    withheld = max(source_n - public_n, 0)
+    return (
+        f"Public GIS detail sheets (Large Gen + Small Gen): **{public_n:,}** projects. "
+        f"ERCOT's Summary sheet reports **{source_n:,}** total interconnection requests. "
+        f"The other {withheld:,} are withheld from those public sheets "
+        f"(pre-FIS large generators and not-yet-model-ready small generators)."
+    )
 
 
 def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -148,9 +192,8 @@ def render():
     
     # Header
     st.markdown("### ERCOT Interconnection Queue")
-    st.markdown("Real projects from ERCOT's Capacity, Demand and Reserves (CDR) Report showing the interconnection queue pipeline of future generation capacity.")
-    st.caption("Figures below reflect the May 2025 (Revised) ERCOT CDR, not today's queue.")
-    
+    st.markdown("Projects from ERCOT's Generator Interconnection Status (GIS) Report — the actual interconnection queue, republished monthly.")
+
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
@@ -166,38 +209,62 @@ def render():
         # degradation consistent with every other tab (previously this
         # tab bypassed load_parquet() with a raw pd.read_parquet() call).
         df = load_parquet("queue.parquet", "queue", allow_empty=True)
-        
+
+        coverage = gis_public_vs_summary_caption(len(df))
+        if coverage:
+            st.caption(coverage)
+
         # Check if data is empty
         if len(df) == 0:
             st.warning("⚠️ **No projects in queue**")
             st.info("🔄 The data file is empty. Re-run the ETL script.")
-            st.code("python etl/ercot_queue_etl.py", language="bash")
+            st.code("python etl/ercot_gis_queue_etl.py", language="bash")
             return
-        
-        # Validate and filter to Texas coordinates
-        df_valid = df[
-            (df['lat'].notna()) & (df['lon'].notna()) &
-            (df['lat'] >= 25.8) & (df['lat'] <= 36.5) &
-            (df['lon'] >= -106.7) & (df['lon'] <= -93.5)
-        ].copy()
-        
-        if len(df_valid) == 0:
-            st.error("❌ **No projects with valid Texas coordinates found**")
-            st.info("Check the ETL script coordinate validation.")
-            return
-        
-        # Ensure required columns exist
-        required_cols = ['proposed_mw', 'project_name', 'fuel']
-        missing_cols = [col for col in required_cols if col not in df_valid.columns]
+
+        # Headline metrics use the complete parsed queue (or IA-signed subset).
+        # Coordinate filtering is map-only — do not silently drop rows from totals.
+        required_cols = ['proposed_mw', 'project_name', 'fuel', 'status']
+        missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
             st.error(f"❌ **Missing required columns**: {missing_cols}")
             return
-    
-        # Summary metrics
-        total_capacity = df_valid['proposed_mw'].sum()
-        total_projects = len(df_valid)
-        fuel_types = df_valid['fuel'].nunique()
+
+        show_full_queue = st.toggle(
+            "Show full public queue (includes projects still under study)",
+            value=False,
+        )
+
+        df_view = select_queue_view(df, show_full_queue)
+        df_map = df_view[texas_mappable_mask(df_view)].copy()
+
+        st.caption(
+            "Default: projects with a signed interconnection agreement (SGIA/IA). "
+            "That is a study-process milestone, not a guarantee the plant will be built. "
+            "Toggle to include projects still under study. ERCOT withholds some pre-FIS "
+            "and not-yet-public small-generator requests from the public detail sheets."
+            if not show_full_queue else
+            "Showing every project on ERCOT's public Large Gen and Small Gen detail sheets. "
+            "The GIS Summary tally can be higher because some requests are confidential "
+            "until a Full Interconnection Study is requested or small-gen data is model-ready."
+        )
+
+        if len(df_view) == 0:
+            st.warning("⚠️ **No projects match this view**")
+            st.info("Toggle \"Show full public queue\" above to see all parsed projects.")
+            return
+
+        # Summary metrics — complete view, including any unmappable rows
+        total_capacity = df_view['proposed_mw'].sum()
+        total_projects = len(df_view)
+        fuel_types = df_view['fuel'].nunique()
         
+        cap_subtitle = (
+            "Public detail sheets" if show_full_queue else "Signed IA (not construction)"
+        )
+        count_subtitle = (
+            "Public Large+Small Gen sheets" if show_full_queue else "Signed interconnection agreement"
+        )
+
         col1, col2, col3 = st.columns(3)
         
         with col1:
@@ -205,7 +272,7 @@ def render():
             <div class="metric-card">
                 <div class="metric-card-title">Total Planned Capacity</div>
                 <div class="metric-card-value">{total_capacity:,.0f} MW</div>
-                <div class="metric-card-subtitle">Pipeline Projects</div>
+                <div class="metric-card-subtitle">{cap_subtitle}</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -213,8 +280,8 @@ def render():
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-card-title">Projects in Queue</div>
-                <div class="metric-card-value">{total_projects}</div>
-                <div class="metric-card-subtitle">Awaiting Interconnection</div>
+                <div class="metric-card-value">{total_projects:,}</div>
+                <div class="metric-card-subtitle">{count_subtitle}</div>
             </div>
             """, unsafe_allow_html=True)
         
@@ -229,18 +296,20 @@ def render():
         
         st.markdown("")  # Spacing
     
-        # Map section
+        # Map section — mappable subset only
         st.subheader("Project Locations")
-        
-        deck = create_queue_map(df_valid)
+        if len(df_map) < len(df_view):
+            st.caption(
+                f"Map shows {len(df_map):,} of {len(df_view):,} projects in this view "
+                f"({len(df_view) - len(df_map):,} lack usable Texas coordinates)."
+            )
+
+        deck = create_queue_map(df_map)
         if deck is None:
-            st.error("❌ **Unable to create map** - No valid coordinates found")
-            return
-            
-        st.pydeck_chart(deck, height=600, use_container_width=True)
-        
-        # Horizontal legend right under map - matching Generation Map and Fuel Mix style
-        st.markdown(
+            st.warning("No mappable coordinates for this view. Tables below still use the full view totals.")
+        else:
+            st.pydeck_chart(deck, height=600, use_container_width=True)
+            st.markdown(
             '<div style="text-align: center; padding: 12px 0; background-color: #f9fafb; '
             'border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; margin: 16px 0;">'
             '<span style="margin-right: 24px; white-space: nowrap;">'
@@ -265,97 +334,103 @@ def render():
             unsafe_allow_html=True
         )
         
-        last_processed = get_last_updated(df_valid)
+        last_processed = get_last_updated(df_view)
         timestamp = get_file_modification_time("queue.parquet")
+        view_label = (
+            "full public Large+Small Gen detail sheets"
+            if show_full_queue
+            else "signed interconnection agreement (not a construction guarantee)"
+        )
         st.info(
-            "**Report vintage: ERCOT CDR — May 2025 (Revised).** "
-            "Project list is from that published report, not a live interconnection queue. "
+            f"**Showing: {view_label}.** "
+            "Source: ERCOT GIS Report, republished monthly — not a real-time feed. "
             f"Last processed: {last_processed}."
         )
-        
+
         st.markdown("---")
-    
+
         # Data export
         col1, col2 = st.columns([3, 1])
         with col1:
             st.markdown("**Download Queue Data for Policy Analysis**")
         with col2:
             create_download_button(
-                df=df_valid,
+                df=df_view,
                 filename_prefix="interconnection_queue",
                 label="Download Queue Data"
             )
-        
+
         # Project breakdown by fuel type
         st.subheader("Queue Composition by Technology")
-        
-        fuel_summary = df_valid.groupby('fuel').agg({
+
+        fuel_summary = df_view.groupby('fuel').agg({
             'proposed_mw': 'sum',
             'project_name': 'count'
         }).round(0).sort_values('proposed_mw', ascending=False)
-        
+
         fuel_summary.columns = ['Total Capacity (MW)', 'Number of Projects']
         fuel_summary['Avg Size (MW)'] = (fuel_summary['Total Capacity (MW)'] / fuel_summary['Number of Projects']).round(0)
-        
+
         st.dataframe(fuel_summary, use_container_width=True)
-        
+
         # Key insights
         st.subheader("Key Insights")
-        
+
         dominant_fuel = fuel_summary.index[0]
         dominant_capacity = fuel_summary.iloc[0]['Total Capacity (MW)']
         dominant_pct = (dominant_capacity / total_capacity) * 100
-        
-        avg_project_size = df_valid['proposed_mw'].mean()
-        largest_project = df_valid.loc[df_valid['proposed_mw'].idxmax()]
-        
+
+        avg_project_size = df_view['proposed_mw'].mean()
+        largest_project = df_view.loc[df_view['proposed_mw'].idxmax()]
+
         st.markdown(f"""
         - **Pipeline Scale**: {total_projects:,} projects representing {total_capacity:,.0f} MW of future capacity
         - **Dominant Technology**: {dominant_fuel} accounts for {dominant_pct:.1f}% of planned capacity
         - **Average Project Size**: {avg_project_size:.0f} MW per project
         - **Largest Project**: {largest_project['project_name']} ({largest_project['proposed_mw']:.0f} MW)
         - **Geographic Concentration**: Most projects located in West Texas (Panhandle wind corridor)
-        - **Data Source**: ERCOT Capacity, Demand and Reserves (CDR) Report
+        - **Data Source**: ERCOT Generator Interconnection Status (GIS) Report
         """)
-        
+
         # Technical notes
         with st.expander("Technical Notes"):
             st.markdown(f"""
             **Data Source:**
-            - Source: ERCOT CDR (Capacity, Demand and Reserves) Report
-            - Update Frequency: Monthly
-            - Coverage: All projects in ERCOT interconnection queue
+            - Source: ERCOT Generator Interconnection Status (GIS) Report
+            - Update Frequency: Monthly (ERCOT republishes; this dashboard's ETL runs every 6 hours and picks up the newest available report)
+            - Coverage: {view_label}
             - Last Updated: {timestamp}
-            
+
             **Map Features:**
             - Color coding by project size (red = large, navy = small)
             - Logarithmic radius scaling for visual clarity
             - Centered on West Texas where most projects located
             - Interactive pan/zoom enabled for detailed inspection
             - White outlines for visibility on light background
-            
+
             **Data Processing:**
             - Coordinates validated to Texas bounds (25.8-36.5°N, -106.7 to -93.5°W)
             - Invalid coordinates filtered out
-            - Project capacities range from {df_valid['proposed_mw'].min():.0f} to {df_valid['proposed_mw'].max():.0f} MW
-            - {len(df_valid)} of {len(df)} projects have valid Texas coordinates
+            - Project capacities range from {df_view['proposed_mw'].min():.0f} to {df_view['proposed_mw'].max():.0f} MW
+            - {len(df_map)} of {len(df_view)} projects in this view are mapped (Texas coordinates)
+            - Coordinates are county centroids with small jitter, not exact site locations — the source report gives county and substation name, not lat/lon
             """)
-        
+
         # Render footer
-        last_updated = get_last_updated(df_valid)
+        last_updated = get_last_updated(df_view)
         render_data_source_footer('queue', last_updated)
-        
+
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
         st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
-        st.code("python etl/ercot_queue_etl.py", language="bash")
-        
+        st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+
     except pd.errors.ParserError:
         st.error(f"❌ **File Corrupted**: Unable to read queue data")
         st.info("🔄 The parquet file may be damaged. Re-run the ETL script.")
-        st.code("python etl/ercot_queue_etl.py", language="bash")
-        
+        st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+
     except Exception as e:
         st.error(f"❌ **Unexpected error loading queue data**: {str(e)}")
         st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/ercot_queue_etl.py", language="bash")
+        st.code("python etl/ercot_gis_queue_etl.py", language="bash")

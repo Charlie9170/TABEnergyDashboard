@@ -11,7 +11,7 @@
 | Fuel Mix | `data/fuelmix.parquet` | EIA v2 API (`electricity/rto/fuel-type-data`, respondent ERCO) | Every 6 hours via GitHub Actions | Production |
 | Price Map | `data/price_map.parquet` | ERCOT public HTML (`real_time_spp`) | Every 6 hours via GitHub Actions | Production |
 | Generation | `data/generation.parquet` | EIA v2 API (Operating Generator Capacity) | Every 6 hours via GitHub Actions | Production |
-| Queue | `data/queue.parquet` | ERCOT CDR Excel report (local file) | Every 6 hours via GitHub Actions | Production |
+| Queue | `data/queue.parquet` | ERCOT GIS Report (Generator Interconnection Status), fetched monthly | Every 6 hours via GitHub Actions (source republishes monthly) | Production |
 | Minerals | `data/minerals_deposits.parquet` | Manual curation (GLO, USGS, industry) | Manual / on-demand | Production (sparse) |
 
 *(verified: `app/utils/data_sources.py`, `.github/workflows/etl.yml`)*
@@ -74,14 +74,17 @@ The workflow exports `EIA_API_KEY` as: `${EIA_API_KEY_SECRET:-$EIA_API_KEY_VAR}`
 
 ---
 
-## ERCOT CDR (Interconnection Queue)
+## ERCOT GIS Report (Interconnection Queue)
 
-- **Source file:** `data/ercot_cdr_may2025.xlsx` (committed to repository)
-- **Description:** ERCOT Capacity, Demand and Reserves (CDR) Report — May 2025 revision
-- **ETL script:** `etl/ercot_queue_etl.py`
-- **No API key required** (public Excel report)
-- **Note:** The ETL also attempts to download the latest CDR from ERCOT's website; the committed `.xlsx` file serves as a fallback
-*(verified: `data/ercot_cdr_may2025.xlsx` presence, `app/utils/data_sources.py`)*
+- **Description:** ERCOT Generator Interconnection Status (GIS) Report — the actual interconnection queue, republished monthly (reportTypeId 15933)
+- **ETL script:** `etl/ercot_gis_queue_etl.py`
+- **Discovery:** JSON listing endpoint `https://www.ercot.com/misapp/servlets/IceDocListJsonWS?reportTypeId=15933`, filtered to `FriendlyName` starting `GIS_Report_`, newest `PublishDate` wins; downloaded by `DocID` from `https://www.ercot.com/misdownload/servlets/mirDownload`. No hardcoded filename — the report's month naming is inconsistent (e.g. "July2026" vs "Jun2026").
+- **No API key required** (public report)
+- **Sheets parsed:** `Project Details - Large Gen` and `Project Details - Small Gen`, unioned into the full active queue
+- **Sidecar file:** `data/queue_gis_metadata.json` — source doc provenance (DocID, publish date) and the report's own published totals, used by `scripts/validate_gis_queue_parquet.py` as an independent cross-check
+- **Known limitation:** The report has no lat/lon — only County and a free-text substation description. Coordinates are county centroid + deterministic jitter (`etl/texas_counties.py`), same approach and same limitation as the retired CDR pipeline.
+- **Retired:** `etl/ercot_queue_etl.py` (ERCOT CDR Report, a single static May 2025 snapshot) — archived, not deleted; see its module docstring. `data/ercot_cdr_may2025.xlsx` left in place but no longer read by the active pipeline.
+*(verified: `etl/ercot_gis_queue_etl.py`, live query of the listing endpoint during Task 8 build)*
 
 ---
 
@@ -144,20 +147,27 @@ Current shape: (850, 7) *(verified: parquet inspection)*
 | Column | Dtype | Description |
 |--------|-------|-------------|
 | `project_name` | `StringDtype` | Project name |
-| `fuel_type` | `StringDtype` | Fuel/technology type |
-| `technology` | `StringDtype` | Technology description |
-| `status` | `StringDtype` | Interconnection status |
+| `fuel_code` | `StringDtype` | Raw ERCOT fuel code (e.g. "SOL", "OTH") |
+| `technology` | `StringDtype` | Raw ERCOT technology code (e.g. "PV", "BA") |
+| `fuel_type` | `StringDtype` | Friendly fuel name mapped from `fuel_code`/`technology` (e.g. "Battery Storage") |
+| `capacity_mw` | `float64` | Capacity in MW (can be zero/negative for repowering net-change projects) |
 | `county` | `StringDtype` | Texas county |
-| `capacity_mw` | `float64` | Proposed capacity in MW |
-| `expected_date` | `StringDtype` | Expected online date |
-| `lat` | `float64` | Latitude |
-| `lon` | `float64` | Longitude |
+| `poi_location` | `StringDtype` | Free-text point-of-interconnection description |
+| `interconnecting_entity` | `StringDtype` | Developer/interconnecting entity |
+| `cdr_reporting_zone` | `StringDtype` | ERCOT CDR reporting zone |
+| `projected_cod` | `StringDtype` | Projected commercial operation date |
+| `gim_study_phase` | `StringDtype` | Raw GIM Study Phase text (source of the derived `status`) |
+| `status` | `StringDtype` | 3-bucket enum: "Early Stage" / "Under Study" / "Interconnection Agreement Signed" |
+| `ia_signed` | `bool` | `status == "Interconnection Agreement Signed"` |
+| `size_category` | `StringDtype` | "Large" or "Small" (source sheet) |
+| `lat` | `float64` | Latitude (county centroid + jitter, not exact site) |
+| `lon` | `float64` | Longitude (county centroid + jitter, not exact site) |
 | `data_source` | `StringDtype` | Source citation |
-| `last_updated` | `StringDtype` | ISO timestamp |
+| `last_updated` | `StringDtype` | ISO timestamp of ETL run |
 
-Current shape: (281, 11) *(verified: parquet inspection)*
+Current shape: (1827, 18) *(verified: local run of `etl/ercot_gis_queue_etl.py` against GIS_Report_July2026, 2026-08-18, branch `task-8-gis`)*
 
-> **Note:** The canonical schema in `app/utils/schema.py` uses `fuel` (not `fuel_type`) and `proposed_mw` (not `capacity_mw`). Column aliases in `COLUMN_ALIASES["queue"]` map between them. *(verified: `app/utils/schema.py`)*
+> **Note:** The canonical schema in `app/utils/schema.py` uses `fuel` (not `fuel_type`) and `proposed_mw` (not `capacity_mw`). Column aliases in `COLUMN_ALIASES["queue"]` map between them; this still applies to the GIS pipeline's output. *(verified: `app/utils/schema.py`)*
 
 ### `data/minerals_deposits.parquet`
 | Column | Dtype | Description |

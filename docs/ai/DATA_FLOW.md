@@ -99,18 +99,20 @@ External Source (API / HTML / Excel)
 
 ## Step-by-step: Interconnection Queue
 
-**Source:** ERCOT CDR Excel report — file `data/ercot_cdr_may2025.xlsx` (committed)  
-**ETL script:** `etl/ercot_queue_etl.py`  
-**Output:** `data/queue.parquet`  
-**Dashboard tab:** `app/tabs/queue_tab.py`
+**Source:** ERCOT Generator Interconnection Status (GIS) Report — republished monthly, discovered via ERCOT's public document-listing API (no hardcoded URL)  
+**ETL script:** `etl/ercot_gis_queue_etl.py`  
+**Output:** `data/queue.parquet`, `data/queue_gis_metadata.json`  
+**Dashboard tab:** `app/tabs/queue_tab.py`  
+**Validation gate:** `scripts/validate_gis_queue_parquet.py` (runs in CI, no `continue-on-error`, before commit)
 
-### ETL steps (high-level — full details in `etl/ercot_queue_etl.py`)
-1. Attempts to download the latest CDR from ERCOT's website; falls back to `data/ercot_cdr_may2025.xlsx`
-2. Parses Excel sheet for planned/future generation projects
-3. Extracts project name, fuel type, technology, status, county, capacity, expected date
-4. Calls `texas_counties.py` to geocode county → (lat, lon)
-5. Validates Texas coordinate bounds (lat 25.8–36.5, lon -106.7 to -93.5)
-6. Writes to `data/queue.parquet` (281 rows in current file)
+### ETL steps (high-level — full details in `etl/ercot_gis_queue_etl.py`)
+1. Queries `https://www.ercot.com/misapp/servlets/IceDocListJsonWS?reportTypeId=15933`, filters to `FriendlyName` starting `GIS_Report_`, takes the newest `PublishDate`, downloads by `DocID`
+2. Parses `Project Details - Large Gen` and `Project Details - Small Gen` sheets (header row discovered by scanning for `INR` in column 0, not hardcoded skiprows)
+3. Maps coded `Fuel`/`Technology` to friendly names via the report's own Acronyms legend, with `(Fuel=OTH, Technology=BA) → "Battery Storage"` handled before the generic map
+4. Derives a 3-bucket `status` enum ("Early Stage" / "Under Study" / "Interconnection Agreement Signed") from the free-text `GIM Study Phase` column
+5. Calls `texas_counties.get_county_coordinates_for_project()` (reused from the retired `ercot_queue_etl.py`) to geocode county → (lat, lon) + jitter — the GIS report has no coordinates of its own
+6. Writes the full unfiltered union of both sheets to `data/queue.parquet`; the tab defaults to **signed interconnection agreement** (SGIA/IA milestone, not a 75 MW cut — that threshold is SB6 large-*load* policy). Full public-sheet view is a render-time toggle. Headline counts use the selected view's complete rows; the map may show a mappable subset.
+7. Writes `data/queue_gis_metadata.json` with the source report's own published totals (project count, capacity under study), used by the validation gate as an independent cross-check
 
 ---
 
