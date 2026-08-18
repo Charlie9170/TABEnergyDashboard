@@ -1,8 +1,12 @@
 #!/bin/bash
-# 
-# Refresh All ETL Data Script
-# Run this to update all dashboard data from APIs
 #
+# Refresh All ETL Data Script
+# Run from the repository root to update dashboard parquet files.
+# Matches the production ETLs in .github/workflows/etl.yml
+# (not demo stubs such as etl/price_map_etl.py).
+#
+
+set -euo pipefail
 
 echo "=================================================="
 echo "🔄 REFRESHING ALL DASHBOARD DATA"
@@ -11,45 +15,30 @@ echo ""
 
 cd "$(dirname "$0")"
 
-echo "1️⃣  Fetching EIA fuel mix data..."
-python etl/eia_fuelmix_etl.py
-if [ $? -eq 0 ]; then
-    echo "✅ Fuel mix data refreshed"
-else
-    echo "❌ Fuel mix ETL failed"
-    exit 1
+PYTHON="${PYTHON:-python}"
+if [ -x ".venv/bin/python" ]; then
+    PYTHON=".venv/bin/python"
+elif [ -x "venv/bin/python" ]; then
+    PYTHON="venv/bin/python"
 fi
-echo ""
 
-echo "2️⃣  Fetching EIA generation plants data..."
-python etl/eia_plants_etl.py
-if [ $? -eq 0 ]; then
-    echo "✅ Generation plants data refreshed"
-else
-    echo "❌ Plants ETL failed"
-    exit 1
-fi
-echo ""
+run_etl() {
+    local label="$1"
+    local script="$2"
+    echo "${label}"
+    if "${PYTHON}" "${script}"; then
+        echo "✅ ${script} completed"
+    else
+        echo "❌ ${script} failed"
+        exit 1
+    fi
+    echo ""
+}
 
-echo "3️⃣  Processing ERCOT interconnection queue..."
-python etl/ercot_queue_etl.py
-if [ $? -eq 0 ]; then
-    echo "✅ Queue data refreshed"
-else
-    echo "❌ Queue ETL failed"
-    exit 1
-fi
-echo ""
-
-echo "4️⃣  Generating price map data..."
-python etl/price_map_etl.py
-if [ $? -eq 0 ]; then
-    echo "✅ Price map data refreshed"
-else
-    echo "❌ Price map ETL failed"
-    exit 1
-fi
-echo ""
+run_etl "1️⃣  Fetching EIA fuel mix data..." "etl/eia_fuelmix_etl.py"
+run_etl "2️⃣  Fetching ERCOT real-time settlement prices..." "etl/ercot_lmp_etl.py"
+run_etl "3️⃣  Fetching EIA generation plants data..." "etl/eia_plants_etl.py"
+run_etl "4️⃣  Processing ERCOT interconnection queue..." "etl/ercot_queue_etl.py"
 
 echo "=================================================="
 echo "✅ ALL DATA REFRESHED SUCCESSFULLY"

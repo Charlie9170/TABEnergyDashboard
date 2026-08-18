@@ -18,7 +18,7 @@
 | **6** | Honest generation labeling | **DONE** — `generation_is_estimated`, no 70% fallback in tab/ETL |
 | **7** | Queue freshness labeling | **DONE** |
 | **8** | Dynamic CDR queue source | **OPEN** |
-| **9** | Fix `refresh_all_data.sh` | **OPEN** |
+| **9** | Fix `refresh_all_data.sh` | **DONE** — calls `ercot_lmp_etl.py`, not demo `price_map_etl.py` |
 | **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |
 | **11** | Fix workflow commit/push git strategy | **DONE** — concurrency, pull-before-ETL, push retry (`2bac401`) |
 | **12** | Reconcile `docs/ai/` | **DONE** — `CURRENT_STATE.md`, `CHANGELOG_FOR_AI.md` (2026-08-18) |
