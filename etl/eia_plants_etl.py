@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import time
 
 import pandas as pd
+from dateutil.relativedelta import relativedelta
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -131,6 +132,20 @@ def create_http_session() -> requests.Session:
     return session
 
 
+def rolling_capacity_period() -> Tuple[str, str]:
+    """Last complete calendar month for operating-generator capacity."""
+    last_complete = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    period = last_complete.strftime('%Y-%m')
+    return period, period
+
+
+def rolling_generation_period() -> Tuple[str, str]:
+    """Last three complete calendar months for facility-fuel generation averaging."""
+    end = datetime.now(timezone.utc).replace(day=1) - relativedelta(months=1)
+    start = end - relativedelta(months=2)
+    return start.strftime('%Y-%m'), end.strftime('%Y-%m')
+
+
 def validate_api_response(response_data: Dict) -> None:
     """
     Validate EIA API response structure.
@@ -166,10 +181,15 @@ def fetch_texas_generators(api_key: str) -> pd.DataFrame:
     offset = 0
     length = 5000  # Max per request
     
-    logger.info("Fetching Texas power plant data from EIA API")
-    
+    capacity_start, capacity_end = rolling_capacity_period()
+    logger.info(
+        "Fetching Texas power plant data from EIA API (%s to %s)",
+        capacity_start,
+        capacity_end,
+    )
+
     session = create_http_session()
-    
+
     try:
         while True:
             # Build API request for Texas generators
@@ -179,8 +199,8 @@ def fetch_texas_generators(api_key: str) -> pd.DataFrame:
                 'frequency': 'monthly',
                 'data[0]': 'nameplate-capacity-mw',
                 'facets[stateid][]': 'TX',  # Texas only
-                'start': '2024-01',  # Recent data
-                'end': '2024-01',
+                'start': capacity_start,
+                'end': capacity_end,
                 'offset': offset,
                 'length': length,
             }
@@ -292,13 +312,16 @@ def fetch_actual_generation(api_key: str) -> pd.DataFrame:
     Uses plant totals (fuel2002=ALL, primeMover=ALL) and averages the requested
     months, converting monthly MWh to average MW.
     """
-    logger.info("Fetching actual generation from EIA facility-fuel API")
+    start_date, end_date = rolling_generation_period()
+    logger.info(
+        "Fetching actual generation from EIA facility-fuel API (%s to %s)",
+        start_date,
+        end_date,
+    )
 
     all_data: List[Dict] = []
     offset = 0
     length = 5000
-    start_date = '2024-07'
-    end_date = '2024-09'
 
     session = create_http_session()
 
@@ -787,7 +810,11 @@ def main() -> None:
         
         # Transform to canonical schema with actual generation
         final_df = transform_to_canonical_schema(fuel_df, generation_df)
-        
+
+        gen_start, gen_end = rolling_generation_period()
+        final_df['generation_period_start'] = gen_start
+        final_df['generation_period_end'] = gen_end
+
         # Write output atomically
         output_path = DATA_DIR / "generation.parquet"
         atomic_write_parquet(final_df, output_path)

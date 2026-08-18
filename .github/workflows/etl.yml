@@ -5,69 +5,74 @@ on:
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: etl-data-updates
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
-      
+
+      - name: Sync with latest main
+        run: git pull origin main --no-rebase
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Install dependencies
         run: pip install -r requirements.txt
-      
+
       - name: Run EIA Fuel Mix ETL
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python etl/eia_fuelmix_etl.py
         continue-on-error: true
-      
+
       - name: Run ERCOT Price Map ETL
         run: python etl/ercot_lmp_etl.py
         continue-on-error: true
-      
+
       - name: Run EIA Plants ETL
         env:
           EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python etl/eia_plants_etl.py
-        continue-on-error: true
-      
+
       - name: Run Queue ETL
         run: python etl/ercot_queue_etl.py
         continue-on-error: true
-      
+
+      - name: Validate generation parquet
+        run: python scripts/validate_generation_parquet.py
+
       - name: Commit and push changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Add data files
+
           git add data/*.parquet || true
-          
-          # Create trigger file to force Streamlit Cloud redeploy
+
           echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .streamlit_trigger
           git add .streamlit_trigger
-          
-          # Check if there are changes to commit
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
           fi
-          
-          # Commit changes (quote date format — unquoted %H:%M breaks on GNU date)
+
           git commit -m "🤖 Auto-update: $(date -u +"%Y-%m-%d %H:%M UTC")"
-          
-          # Merge remote main before push (rebase conflicts on binary parquets)
-          git pull origin main --no-rebase --no-edit
-          
-          # Push changes
-          git push origin main
+
+          git push origin main || (
+            git pull origin main --no-rebase -X ours --no-edit &&
+            git push origin main
+          )

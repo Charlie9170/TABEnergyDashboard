@@ -13,6 +13,15 @@ from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
 
 
+def generation_period_subtitle(df: pd.DataFrame) -> str:
+    """Subtitle for reported generation metric from ETL period columns."""
+    if 'generation_period_start' in df.columns and 'generation_period_end' in df.columns:
+        start = df['generation_period_start'].iloc[0]
+        end = df['generation_period_end'].iloc[0]
+        return f"EIA-923 Facility-Fuel ({start} to {end})"
+    return "EIA-923 Facility-Fuel (3-mo avg)"
+
+
 def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and aggregate generation facilities data.
@@ -35,7 +44,11 @@ def clean_and_aggregate_facilities(df: pd.DataFrame) -> pd.DataFrame:
         agg_dict['actual_generation_mw'] = 'sum'
     if 'generation_is_estimated' in df_clean.columns:
         agg_dict['generation_is_estimated'] = 'max'
-    
+    if 'generation_period_start' in df_clean.columns:
+        agg_dict['generation_period_start'] = 'first'
+    if 'generation_period_end' in df_clean.columns:
+        agg_dict['generation_period_end'] = 'first'
+
     # Group by plant and aggregate
     aggregated = df_clean.groupby(['plant_name', 'fuel', 'lat', 'lon']).agg(agg_dict).reset_index()
     
@@ -229,6 +242,7 @@ def render():
         
         # Clean and aggregate data
         clean_df = clean_and_aggregate_facilities(df)
+        gen_subtitle = generation_period_subtitle(clean_df)
 
         if 'actual_generation_mw' not in clean_df.columns or clean_df['actual_generation_mw'].isna().all():
             st.warning("⚠️ **No measured generation data in this file**")
@@ -261,7 +275,7 @@ def render():
             <div class="metric-card">
                 <div class="metric-card-title">Reported Generation ⓘ</div>
                 <div class="metric-card-value">{total_actual_gen:,.0f} MW</div>
-                <div class="metric-card-subtitle">EIA-923 Facility-Fuel (3-mo avg)</div>
+                <div class="metric-card-subtitle">{gen_subtitle}</div>
             </div>
             """, unsafe_allow_html=True)
         
