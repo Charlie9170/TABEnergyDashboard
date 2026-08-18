@@ -63,11 +63,11 @@ jobs:
             exit 0
           fi
           
-          # Commit changes
-          git commit -m "🤖 Auto-update: $(date -u +%Y-%m-%d %H:%M UTC)"
+          # Commit changes (quote date format — unquoted %H:%M breaks on GNU date)
+          git commit -m "🤖 Auto-update: $(date -u +"%Y-%m-%d %H:%M UTC")"
           
-          # Pull latest changes with rebase (handles concurrent pushes)
-          git pull --rebase origin main
+          # Merge remote main before push (rebase conflicts on binary parquets)
+          git pull origin main --no-rebase --no-edit
           
           # Push changes
           git push origin main
