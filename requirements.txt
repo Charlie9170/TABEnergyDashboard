@@ -1,9 +1,20 @@
 # Core dependencies - PINNED VERSIONS to prevent schema mismatch
 # These exact versions ensure compatible parquet schema between local dev and GitHub Actions
+# pandas/pyarrow/numpy are pinned to the earliest patch releases that publish
+# prebuilt cp314 wheels on PyPI. Streamlit Community Cloud's Python version is a
+# platform-side "Advanced settings" toggle, not something this repo can pin, and
+# the platform has moved its build image to Python 3.14 (see comment below on
+# geopandas/fiona). The prior pins (pandas==2.2.3, pyarrow==19.0.0, numpy==2.1.3)
+# have no cp314 wheels, so Streamlit Cloud fell back to building from source and
+# the pyarrow build failed outright because the build image has no cmake
+# (see .audit-inputs/streamlit-deploy.log). All three still satisfy streamlit
+# 1.45.1's own constraints (numpy<3,>=1.23; pandas<3,>=1.4.0; pyarrow>=7.0) and
+# install from prebuilt wheels on Python 3.11-3.14, so local dev and the 3.11
+# GitHub Actions ETL runner are unaffected.
 streamlit==1.45.1
-pandas==2.2.3
-pyarrow==19.0.0
-numpy==2.1.3
+pandas==2.3.3
+pyarrow==22.0.0
+numpy==2.3.3
 
 # Data fetching
 requests>=2.31.0
