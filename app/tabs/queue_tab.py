@@ -149,15 +149,14 @@ def render():
     # Header
     st.markdown("### ERCOT Interconnection Queue")
     st.markdown("Real projects from ERCOT's Capacity, Demand and Reserves (CDR) Report showing the interconnection queue pipeline of future generation capacity.")
+    st.caption("Figures below reflect the May 2025 (Revised) ERCOT CDR, not today's queue.")
     
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
                 margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business advocates for efficient interconnection 
-        processes and grid infrastructure to support new generation projects. 
-        <a href="https://www.txbiz.org/policy-priorities/energy/" target="_blank" 
-           style="color: #1f4788; text-decoration: none; font-weight: 500;">Learn more →</a>
+        processes and grid infrastructure to support new generation projects.
     </div>
     """, unsafe_allow_html=True)
     
@@ -266,9 +265,13 @@ def render():
             unsafe_allow_html=True
         )
         
-        # Status indicator
+        last_processed = get_last_updated(df_valid)
         timestamp = get_file_modification_time("queue.parquet")
-        st.success(f"**ERCOT CDR Data** - Last Updated: {timestamp}")
+        st.info(
+            "**Report vintage: ERCOT CDR — May 2025 (Revised).** "
+            "Project list is from that published report, not a live interconnection queue. "
+            f"Last processed: {last_processed}."
+        )
         
         st.markdown("---")
     

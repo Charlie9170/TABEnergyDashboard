@@ -150,7 +150,7 @@ When you make a structural change, update the relevant `docs/ai/` file **in the 
 
 ### Streamlit crash on startup
 1. Check `app/main.py` for syntax errors.
-2. Run `streamlit run main.py` locally from `app/` directory.
+2. Run `streamlit run app/main.py` locally from the repository root.
 3. Check if all `app/tabs/*.py` imports are resolvable.
 4. Check if `app/utils/__init__.py` exports are consistent.
 

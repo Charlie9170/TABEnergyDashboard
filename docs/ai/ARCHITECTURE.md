@@ -11,12 +11,11 @@ app/main.py
 ```
 *(verified: `app/main.py` — `st.set_page_config(...)` call, tab rendering)*
 
-The application is run with:
+The application is run from the repository root with:
 ```bash
-cd app
-streamlit run main.py
+streamlit run app/main.py
 ```
-*(verified: `README.md`)*
+*(verified: `app/main.py` entry point; data loaders resolve `data/` relative to repo root)*
 
 ---
 

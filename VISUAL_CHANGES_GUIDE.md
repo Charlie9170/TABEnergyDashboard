@@ -143,8 +143,7 @@ Storage Facilities: 87
 
 1. Start the dashboard:
    ```bash
-   cd app
-   streamlit run main.py
+   streamlit run app/main.py
    ```
 
 2. Navigate through tabs to see:

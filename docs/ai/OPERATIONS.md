@@ -35,9 +35,8 @@ python etl/eia_plants_etl.py
 python etl/ercot_queue_etl.py
 python etl/mineral_etl.py
 
-# 6. Start the dashboard
-cd app
-streamlit run main.py
+# 6. Start the dashboard (from repo root)
+streamlit run app/main.py
 # Opens at http://localhost:8501
 ```
 *(verified: `README.md`)*

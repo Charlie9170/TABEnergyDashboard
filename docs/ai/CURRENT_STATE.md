@@ -12,11 +12,11 @@
 |------|-------------|--------|
 | **1** | Price Map blank on uniform prices | **DONE** — `app/tabs/price_map_tab.py` on `main` |
 | **2** | Verify/pin Streamlit Cloud Python | **OPEN** |
-| **3** | Fix launch docs (`streamlit run app/main.py` from root) | **OPEN** |
+| **3** | Fix launch docs (`streamlit run app/main.py` from root) | **DONE** |
 | **4** | Real EIA-860 coordinates | **DONE** — in committed `generation.parquet` (CI run 32095361711) |
 | **5** | Fix facility-fuel generation join | **DONE** — measured data in committed parquet |
 | **6** | Honest generation labeling | **DONE** — `generation_is_estimated`, no 70% fallback in tab/ETL |
-| **7** | Queue freshness labeling | **OPEN** |
+| **7** | Queue freshness labeling | **DONE** |
 | **8** | Dynamic CDR queue source | **OPEN** |
 | **9** | Fix `refresh_all_data.sh` | **OPEN** |
 | **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |

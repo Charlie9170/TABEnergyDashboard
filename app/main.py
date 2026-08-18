@@ -80,7 +80,7 @@ from tabs import fuelmix_tab, price_map_tab, generation_tab, queue_tab, minerals
 # Page configuration
 st.set_page_config(
     page_title="Texas Association of Business - Energy Dashboard",
-    page_icon="📊",
+    page_icon=str(Path(__file__).parent.parent / "assets" / "tablogo.webp"),
     layout="wide",
     initial_sidebar_state="collapsed",
 )

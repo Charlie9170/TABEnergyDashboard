@@ -90,10 +90,9 @@ Data is automatically updated every 6 hours via GitHub Actions.
    python etl/interconnection_etl.py
    ```
 
-6. **Start the dashboard**
+6. **Start the dashboard** (from repo root)
    ```bash
-   cd app
-   streamlit run main.py
+   streamlit run app/main.py
    ```
 
 7. **Open your browser**
@@ -235,9 +234,9 @@ python etl/price_map_etl.py
 
 ### Streamlit not starting
 
-- Ensure you're in the `app/` directory when running streamlit
+- Run from the repository root: `streamlit run app/main.py`
 - Check port 8501 isn't already in use
-- Try: `streamlit run main.py --server.port 8502`
+- Try: `streamlit run app/main.py --server.port 8502`
 
 ## Contributing
 

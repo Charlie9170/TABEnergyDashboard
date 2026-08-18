@@ -136,7 +136,6 @@ Next Steps:
   3. Share with board to demonstrate implemented feedback
 
 Run Dashboard:
-  cd app
-  streamlit run main.py
+  streamlit run app/main.py
 
 ================================================================================

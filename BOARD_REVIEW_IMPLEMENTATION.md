@@ -195,8 +195,7 @@ The dashboard is ready for deployment with all board feedback addressed:
 ## Running the Dashboard
 
 ```bash
-cd app
-streamlit run main.py
+streamlit run app/main.py
 ```
 
 Navigate to each tab to see:

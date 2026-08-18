@@ -67,8 +67,7 @@ print('✓ Created demo fuelmix.parquet')
 ### 3. Run the Dashboard
 
 ```bash
-cd app
-streamlit run main.py
+streamlit run app/main.py
 ```
 
 The dashboard will open in your browser at `http://localhost:8501`
@@ -128,14 +127,13 @@ python etl/interconnection_etl.py
 ### Port already in use
 ```bash
 # Use a different port
-streamlit run main.py --server.port 8502
+streamlit run app/main.py --server.port 8502
 ```
 
 ### Import errors
 ```bash
-# Ensure you're in the app/ directory
-cd app
-streamlit run main.py
+# Run from the repository root
+streamlit run app/main.py
 ```
 
 ### API rate limit
