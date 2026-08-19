@@ -1,10 +1,11 @@
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
+import plotly.graph_objects as go
 import math
 
 from utils.data_sources import render_data_source_footer, render_freshness_banner
-from utils.colors import FUEL_COLORS_HEX
+from utils.colors import FUEL_COLORS_HEX, get_fuel_color_hex
 from utils.loaders import get_last_updated, get_file_modification_time, load_parquet
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
@@ -323,7 +324,27 @@ def render():
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            st.bar_chart(fuel_chart_df.set_index('Fuel Type')['Actual Generation (MW)'])
+            # Plotly instead of st.bar_chart: Streamlit 1.45.1 pins altair<6,
+            # which raises TypedDict `closed=` on Streamlit Cloud Python 3.14.
+            mix_series = fuel_chart_df.set_index('Fuel Type')['Actual Generation (MW)']
+            fig = go.Figure(
+                data=[
+                    go.Bar(
+                        x=mix_series.index.astype(str),
+                        y=mix_series.values,
+                        marker_color=[get_fuel_color_hex(str(fuel)) for fuel in mix_series.index],
+                        hovertemplate='%{x}: %{y:,.0f} MW<extra></extra>',
+                    )
+                ]
+            )
+            fig.update_layout(
+                xaxis_title="Fuel Type",
+                yaxis_title="Actual Generation (MW)",
+                height=350,
+                margin=dict(t=20, r=20, b=40, l=60),
+                showlegend=False,
+            )
+            st.plotly_chart(fig, use_container_width=True)
         
         with col2:
             st.dataframe(fuel_chart_df, hide_index=True)
@@ -374,16 +395,12 @@ def render():
         )
         
     except KeyError as e:
-        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
-        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
-        st.code("python etl/eia_plants_etl.py", language="bash")
+        st.error("Generation data is missing a required column.")
+        st.caption(str(e))
         
-    except pd.errors.ParserError as e:
-        st.error(f"❌ **File Corrupted**: Unable to read generation data")
-        st.info("🔄 The parquet file may be damaged. Re-run the ETL script to regenerate.")
-        st.code("python etl/eia_plants_etl.py", language="bash")
+    except pd.errors.ParserError:
+        st.error("Generation data could not be read. Try refreshing the page.")
         
     except Exception as e:
-        st.error(f"❌ **Unexpected error loading generation data**: {str(e)}")
-        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/eia_plants_etl.py", language="bash")
+        st.error("This view could not be displayed. Try refreshing the page.")
+        st.caption(str(e))
