@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import json
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -19,6 +20,8 @@ from utils.loaders import load_parquet, get_last_updated
 from utils.data_sources import format_ct, render_data_source_footer
 from utils.export import create_download_button
 from utils.table_styling import apply_professional_table_style
+
+logger = logging.getLogger(__name__)
 
 
 # Development status color palette (TAB blue gradient - red to blues)
@@ -59,8 +62,9 @@ def load_polygon_data() -> Optional[dict]:
         with open(polygon_path, 'r') as f:
             geojson = json.load(f)
         return geojson
-    except Exception as e:
-        st.warning(f"Could not load polygon data: {e}")
+    except Exception:
+        logger.exception("Minerals tab: unable to read polygon overlay %s", polygon_path)
+        st.warning("Formation overlays are temporarily unavailable.")
         return None
 
 
