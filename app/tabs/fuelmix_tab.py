@@ -18,7 +18,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
 from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
-from utils.data_sources import render_data_source_footer
+from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
 
@@ -27,13 +27,15 @@ def render():
     """Render the Fuel Mix tab with comprehensive error handling."""
     
     # Minimal header matching other tabs - ultra compact
-    st.markdown("### ERCOT Fuel Mix")
-    st.markdown("Hourly electricity generation by fuel type across the ERCOT grid.")
+    st.subheader(
+        "ERCOT Fuel Mix",
+        help="Hourly electricity generation by fuel type across the ERCOT grid.",
+    )
     
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+                margin: 12px 0 8px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business supports a diverse, reliable energy mix 
         that keeps electricity affordable and competitive for Texas businesses.
     </div>
@@ -155,12 +157,12 @@ def render():
         )
         
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Timestamp banner right under the chart legend - matching Price Map style
-        if 'period' in df.columns:
-            latest_period = pd.to_datetime(df['period'].max())
-            timestamp = latest_period.strftime('%Y-%m-%d %H:%M:%S')
-            st.success(f"**ERCOT Fuel Mix Data** - Last Updated: {timestamp}")
+
+        latest_hour = pd.to_datetime(df['period'].max())
+        render_freshness_banner(
+            "ERCOT Fuel Mix Data",
+            latest_hour.strftime('%Y-%m-%d %H:%M:%S'),
+        )
         
         # Data Export Section
         st.markdown("---")
@@ -174,9 +176,13 @@ def render():
                 label="Download Fuel Mix Data"
             )
         
-        # Data source footer
-        last_updated = get_last_updated(df)
-        render_data_source_footer('fuelmix', last_updated)
+        latest_period = df['period_ct'].max()
+        data_through = latest_period.strftime('%b %d, %Y %H:%M CT') if pd.notna(latest_period) else None
+        render_data_source_footer(
+            'fuelmix',
+            get_last_updated(df),
+            data_through=data_through,
+        )
         
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")

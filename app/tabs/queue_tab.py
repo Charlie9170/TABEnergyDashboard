@@ -16,8 +16,8 @@ from typing import Optional
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.loaders import load_parquet, get_last_updated, get_file_modification_time
-from utils.data_sources import render_data_source_footer
+from utils.loaders import load_parquet, get_last_updated
+from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
@@ -46,24 +46,33 @@ def select_queue_view(df: pd.DataFrame, show_full_queue: bool) -> pd.DataFrame:
     return df[df['status'] == COMMITTED_STATUS].copy()
 
 
-def gis_public_vs_summary_caption(parsed_rows: int) -> Optional[str]:
-    """One-line coverage note: public detail-sheet rows vs Summary-sheet total."""
+def gis_queue_toggle_help(parsed_rows: int, ia_count: int) -> str:
+    """Methodology for the queue-view toggle (native Streamlit tooltip)."""
+    parts = [
+        f"Default: {ia_count:,} projects with signed interconnection agreements.",
+        "Default view contains projects with a signed interconnection agreement (SGIA/IA). "
+        "A signed IA is a development/study-process milestone, not a guarantee that the project will be built.",
+        "The full public view includes projects still under study.",
+    ]
     meta_path = Path(__file__).parent.parent.parent / "data" / "queue_gis_metadata.json"
-    if not meta_path.exists():
-        return None
-    try:
-        meta = json.loads(meta_path.read_text())
-        source_n = int(meta["source_total_interconnection_requests"])
-        public_n = int(meta.get("parsed_public_detail_rows", parsed_rows))
-    except (OSError, KeyError, TypeError, ValueError):
-        return None
-    withheld = max(source_n - public_n, 0)
-    return (
-        f"Public GIS detail sheets (Large Gen + Small Gen): **{public_n:,}** projects. "
-        f"ERCOT's Summary sheet reports **{source_n:,}** total interconnection requests. "
-        f"The other {withheld:,} are withheld from those public sheets "
-        f"(pre-FIS large generators and not-yet-model-ready small generators)."
-    )
+    if meta_path.exists():
+        try:
+            meta = json.loads(meta_path.read_text())
+            source_n = int(meta["source_total_interconnection_requests"])
+            public_n = int(meta.get("parsed_public_detail_rows", parsed_rows))
+            withheld = max(source_n - public_n, 0)
+            parts.insert(
+                1,
+                f"Full public view contains {public_n:,} projects from ERCOT's public GIS "
+                f"Large Gen + Small Gen detail sheets. "
+                f"ERCOT's Summary reports {source_n:,} total interconnection requests. "
+                f"The remaining {withheld:,} requests are not in the public detail sheets "
+                "because of ERCOT disclosure/model-readiness limitations, including pre-FIS "
+                "large generators and not-yet-public/model-ready small generators.",
+            )
+        except (OSError, KeyError, TypeError, ValueError):
+            pass
+    return " ".join(parts)
 
 
 def create_queue_map(df: pd.DataFrame) -> Optional[pdk.Deck]:
@@ -191,13 +200,15 @@ def render():
     """Render the Interconnection Queue tab with comprehensive error handling."""
     
     # Header
-    st.markdown("### ERCOT Interconnection Queue")
-    st.markdown("Projects from ERCOT's Generator Interconnection Status (GIS) Report — the actual interconnection queue, republished monthly.")
+    st.subheader(
+        "ERCOT Interconnection Queue",
+        help="ERCOT Generator Interconnection Status (GIS) Report — republished monthly.",
+    )
 
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+                margin: 12px 0 8px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business advocates for efficient interconnection 
         processes and grid infrastructure to support new generation projects.
     </div>
@@ -209,10 +220,6 @@ def render():
         # degradation consistent with every other tab (previously this
         # tab bypassed load_parquet() with a raw pd.read_parquet() call).
         df = load_parquet("queue.parquet", "queue", allow_empty=True)
-
-        coverage = gis_public_vs_summary_caption(len(df))
-        if coverage:
-            st.caption(coverage)
 
         # Check if data is empty
         if len(df) == 0:
@@ -229,24 +236,15 @@ def render():
             st.error(f"❌ **Missing required columns**: {missing_cols}")
             return
 
+        ia_count = int((df["status"] == COMMITTED_STATUS).sum())
         show_full_queue = st.toggle(
-            "Show full public queue (includes projects still under study)",
+            "Show full public queue",
             value=False,
+            help=gis_queue_toggle_help(len(df), ia_count),
         )
 
         df_view = select_queue_view(df, show_full_queue)
         df_map = df_view[texas_mappable_mask(df_view)].copy()
-
-        st.caption(
-            "Default: projects with a signed interconnection agreement (SGIA/IA). "
-            "That is a study-process milestone, not a guarantee the plant will be built. "
-            "Toggle to include projects still under study. ERCOT withholds some pre-FIS "
-            "and not-yet-public small-generator requests from the public detail sheets."
-            if not show_full_queue else
-            "Showing every project on ERCOT's public Large Gen and Small Gen detail sheets. "
-            "The GIS Summary tally can be higher because some requests are confidential "
-            "until a Full Interconnection Study is requested or small-gen data is model-ready."
-        )
 
         if len(df_view) == 0:
             st.warning("⚠️ **No projects match this view**")
@@ -333,9 +331,9 @@ def render():
             '</div>',
             unsafe_allow_html=True
         )
-        
+
         last_processed = get_last_updated(df_view)
-        timestamp = get_file_modification_time("queue.parquet")
+        render_freshness_banner("ERCOT GIS Queue", last_processed)
         view_label = (
             "full public Large+Small Gen detail sheets"
             if show_full_queue
@@ -343,24 +341,10 @@ def render():
         )
         st.info(
             f"**Showing: {view_label}.** "
-            "Source: ERCOT GIS Report, republished monthly — not a real-time feed. "
+            "Republished monthly — not a real-time feed. "
             f"Last processed: {last_processed}."
         )
 
-        st.markdown("---")
-
-        # Data export
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.markdown("**Download Queue Data for Policy Analysis**")
-        with col2:
-            create_download_button(
-                df=df_view,
-                filename_prefix="interconnection_queue",
-                label="Download Queue Data"
-            )
-
-        # Project breakdown by fuel type
         st.subheader("Queue Composition by Technology")
 
         fuel_summary = df_view.groupby('fuel').agg({
@@ -384,41 +368,56 @@ def render():
         largest_project = df_view.loc[df_view['proposed_mw'].idxmax()]
 
         st.markdown(f"""
-        - **Pipeline Scale**: {total_projects:,} projects representing {total_capacity:,.0f} MW of future capacity
-        - **Dominant Technology**: {dominant_fuel} accounts for {dominant_pct:.1f}% of planned capacity
-        - **Average Project Size**: {avg_project_size:.0f} MW per project
-        - **Largest Project**: {largest_project['project_name']} ({largest_project['proposed_mw']:.0f} MW)
-        - **Geographic Concentration**: Most projects located in West Texas (Panhandle wind corridor)
-        - **Data Source**: ERCOT Generator Interconnection Status (GIS) Report
+        - **Dominant technology**: {dominant_fuel} accounts for {dominant_pct:.1f}% of planned capacity in this view
+        - **Average project size**: {avg_project_size:.0f} MW
+        - **Largest project**: {largest_project['project_name']} ({largest_project['proposed_mw']:.0f} MW)
+        - **Geography**: Most mapped projects cluster in West Texas (Panhandle wind corridor)
         """)
 
-        # Technical notes
         with st.expander("Technical Notes"):
-            st.markdown(f"""
-            **Data Source:**
-            - Source: ERCOT Generator Interconnection Status (GIS) Report
-            - Update Frequency: Monthly (ERCOT republishes; this dashboard's ETL runs every 6 hours and picks up the newest available report)
-            - Coverage: {view_label}
-            - Last Updated: {timestamp}
+            st.markdown(
+                """
+                A signed interconnection agreement (SGIA/IA) is a study-process milestone, not a guarantee
+                that a project will be built.
 
-            **Map Features:**
-            - Color coding by project size (red = large, navy = small)
-            - Logarithmic radius scaling for visual clarity
-            - Centered on West Texas where most projects located
-            - Interactive pan/zoom enabled for detailed inspection
-            - White outlines for visibility on light background
+                Map locations are county centroids with small jitter. The GIS report provides county and
+                substation name, not site latitude/longitude.
 
-            **Data Processing:**
-            - Coordinates validated to Texas bounds (25.8-36.5°N, -106.7 to -93.5°W)
-            - Invalid coordinates filtered out
-            - Project capacities range from {df_view['proposed_mw'].min():.0f} to {df_view['proposed_mw'].max():.0f} MW
-            - {len(df_map)} of {len(df_view)} projects in this view are mapped (Texas coordinates)
-            - Coordinates are county centroids with small jitter, not exact site locations — the source report gives county and substation name, not lat/lon
-            """)
+                ERCOT's Summary sheet counts more interconnection requests than appear on the public
+                Large Gen and Small Gen detail sheets. Hover the queue toggle for the current public vs.
+                Summary comparison.
+                """
+            )
 
-        # Render footer
-        last_updated = get_last_updated(df_view)
-        render_data_source_footer('queue', last_updated)
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Queue Data**")
+        with col2:
+            create_download_button(
+                df=df_view,
+                filename_prefix="interconnection_queue",
+                label="Download Queue Data"
+            )
+
+        data_through = None
+        meta_path = Path(__file__).parent.parent.parent / "data" / "queue_gis_metadata.json"
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text())
+                name = meta.get("report_friendly_name")
+                published = str(meta.get("report_publish_date", ""))[:10]
+                if name and published:
+                    data_through = f"{name} (published {published})"
+                elif name:
+                    data_through = str(name)
+            except (OSError, TypeError, ValueError):
+                pass
+        render_data_source_footer(
+            'queue',
+            get_last_updated(df_view),
+            data_through=data_through,
+        )
 
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")

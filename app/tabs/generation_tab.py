@@ -2,13 +2,10 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 import math
-import os
-from datetime import datetime
-from pathlib import Path
 
-from utils.data_sources import render_data_source_footer
+from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.colors import FUEL_COLORS_HEX
-from utils.loaders import get_last_updated, load_parquet
+from utils.loaders import get_last_updated, get_file_modification_time, load_parquet
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
 
@@ -212,12 +209,15 @@ def render_legend_and_counts(df: pd.DataFrame):
 def render():
     """Render the Generation Map tab with comprehensive error handling."""
     # Minimal header - ultra compact
-    st.markdown("### Texas Power Generation Facilities")
+    st.subheader(
+        "Texas Power Generation Facilities",
+        help="Texas plants with measured EIA-923 generation.",
+    )
     
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+                margin: 12px 0 8px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business advocates for streamlined permitting 
         and market-driven investment to meet Texas' growing energy demand.
     </div>
@@ -271,7 +271,7 @@ def render():
         with col2:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-card-title">Reported Generation ⓘ</div>
+                <div class="metric-card-title">Reported Generation</div>
                 <div class="metric-card-value">{total_actual_gen:,.0f} MW</div>
                 <div class="metric-card-subtitle">{gen_subtitle}</div>
             </div>
@@ -299,34 +299,17 @@ def render():
             """, unsafe_allow_html=True)
         
         # Interactive map - full width, shorter height
-        st.subheader("Interactive Facility Map")
+        st.subheader("Facility Map")
         
         deck = create_fixed_texas_map(clean_df)
         st.pydeck_chart(deck, height=500, use_container_width=True)
         
         # Horizontal legend right under map - matching Fuel Mix style
         render_legend_and_counts(clean_df)
-        
-        # Data status indicator with timestamp - MOVED BELOW MAP for better UX
-        file_path = Path(__file__).parent.parent.parent / "data" / "generation.parquet"
-        timestamp_str = "Unknown"
-        if file_path.exists():
-            mod_time = datetime.fromtimestamp(os.path.getmtime(file_path))
-            timestamp_str = mod_time.strftime('%Y-%m-%d %H:%M:%S')
-        
-        st.success(f"**Live Data**: EIA Power Plants Database - {len(clean_df)} facilities from EIA Operating Generator Capacity API - Last Updated: {timestamp_str}")
-        
-        # Data Export Section
-        st.markdown("---")
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            st.markdown("**Download Generation Facilities Data**")
-        with col2:
-            create_download_button(
-                df=clean_df,
-                filename_prefix="generation_facilities",
-                label="Download Facilities Data"
-            )
+        render_freshness_banner(
+            "EIA Generation Facilities",
+            get_file_modification_time("generation.parquet"),
+        )
         
         # Fuel breakdown chart - using actual generation
         st.subheader("Generation Mix by Fuel Type")
@@ -346,7 +329,7 @@ def render():
             st.dataframe(fuel_chart_df, hide_index=True)
         
         # Summary insights
-        st.subheader("🔍 Key Insights")
+        st.subheader("Key Insights")
         
         renewable_actual = fuel_breakdown_actual.get('SOLAR', 0) + fuel_breakdown_actual.get('WIND', 0)
         renewable_pct = (renewable_actual / fuel_breakdown_actual.sum()) * 100
@@ -354,50 +337,41 @@ def render():
         storage_pct = (storage_actual / fuel_breakdown_actual.sum()) * 100
         
         st.markdown(f"""
-        - **Grid Scale**: {total_plants:,} facilities with measured EIA-923 output and {total_capacity:,.0f} MW nameplate capacity
-        - **Generation Data**: {total_actual_gen:,.0f} MW average output from EIA facility-fuel (Jul–Sep 2024)
-        - **Nameplate vs. Output**: Reported output is {capacity_factor:.1f}% of nameplate capacity
-        - **Fuel Diversity**: {len(fuel_breakdown_actual)} fuel types in the measured dataset
-        - **Renewable Energy**: Solar and wind account for {renewable_pct:.1f}% of reported generation
-        - **Battery Storage**: {int(storage_actual):,} MW ({storage_pct:.1f}% of reported generation)
-        - **Geographic Distribution**: EIA Form 860 Schedule 2 plant coordinates
-        - **Data Currency**: EIA operating capacity + facility-fuel; not real-time
+        - **Renewable share**: Solar and wind account for {renewable_pct:.1f}% of reported generation
+        - **Battery storage**: {int(storage_actual):,} MW ({storage_pct:.1f}% of reported generation)
+        - **Nameplate capacity**: {total_capacity:,.0f} MW across these plants — reported output is a three-month average, not current real-time generation
         """)
         
-        # Technical notes
         with st.expander("Technical Notes"):
             st.markdown(f"""
-            **Data Processing:**
-            - Source: EIA Operating Generator Capacity API (electricity/operating-generator-capacity)
-            - Coverage: All registered generators ≥1 MW in Texas (State ID: TX)
-            - Aggregation: Individual generators grouped by plant facility
-            - Geocoding: EIA Form 860 Schedule 2 plant latitude/longitude (Plant Code join)
-            - Generation source: EIA facility-fuel (Form EIA-923), Jul–Sep 2024 average where available
-            - Last Updated: {get_last_updated(df)[:19]}Z
-            
-            **Capacity Notes:**
-            - **Nameplate Capacity**: Theoretical maximum output under ideal conditions ({total_capacity:,.0f} MW total)
-            - **Reported Generation**: Measured from EIA-923 facility-fuel only (plants without data excluded)
-            - **Capacity Factor**: Varies by fuel type - gas ~50-60%, wind ~35%, solar ~25%, nuclear ~90%
-            - **Battery Storage**: Included as generation source - provides grid flexibility and demand response
-            - **Not Real-Time**: These are 3-month averages, not current generation levels
-            
-            **Fuel Type Mapping:**
-            - Gas: All natural gas technologies (combined cycle, combustion turbine, steam)
-            - Solar: Solar photovoltaic installations
-            - Wind: Onshore wind turbines
-            - Storage: Battery energy storage systems ({len(clean_df[clean_df['fuel'] == 'STORAGE'])} facilities, {int(storage_actual):,} MW)
-            - Other: Coal, nuclear, hydroelectric, and miscellaneous sources
-            
-            **Map Visualization:**
-            - Point size scaled by actual generation (not nameplate capacity)
-            - Colors indicate primary fuel type
-            - Interactive tooltips show plant details
-            - Geographic coordinates from EIA Form 860 (not approximated)
+            - Reported generation is measured EIA-923 facility-fuel for **{gen_subtitle}**. Plants without measured data are excluded.
+            - Nameplate capacity is theoretical maximum output; it is not the same as reported generation.
+            - Map point size is scaled by reported generation, not nameplate capacity.
+            - Coordinates come from EIA Form 860 Schedule 2 (plant latitude/longitude), not approximated locations.
             """)
         
-        # Render footer
-        render_data_source_footer('generation', get_last_updated(df))
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown("**Download Generation Facilities Data**")
+        with col2:
+            create_download_button(
+                df=clean_df,
+                filename_prefix="generation_facilities",
+                label="Download Facilities Data"
+            )
+
+        period_label = None
+        if 'generation_period_start' in clean_df.columns and 'generation_period_end' in clean_df.columns:
+            period_label = (
+                f"{clean_df['generation_period_start'].iloc[0]} to "
+                f"{clean_df['generation_period_end'].iloc[0]}"
+            )
+        render_data_source_footer(
+            'generation',
+            get_last_updated(df),
+            data_through=period_label,
+        )
         
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")

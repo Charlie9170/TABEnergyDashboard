@@ -11,44 +11,51 @@ import streamlit as st
 # Data source registry - tracks status of each dataset
 DATA_SOURCES = {
     'fuelmix': {
-        'status': 'live',  # live, demo, stub
+        'status': 'live',
         'source': 'U.S. Energy Information Administration (EIA)',
-        'api': 'EIA v2 API - Electricity RTO Fuel Type Data',
+        'dataset': 'RTO fuel-type data (ERCOT)',
+        'api': 'EIA v2 electricity/rto/fuel-type-data',
         'respondent': 'ERCO (ERCOT)',
-        'update_frequency': 'Every 6 hours via GitHub Actions',
+        'coverage': 'Hourly ERCOT generation by fuel type (rolling 7 days)',
+        'update_frequency': 'Dashboard ETL every 6 hours',
         'url': 'https://www.eia.gov/opendata/',
     },
     'price_map': {
         'status': 'live',
-        'source': 'ERCOT Public API',
+        'source': 'Electric Reliability Council of Texas (ERCOT)',
+        'dataset': 'Real-Time Settlement Point Prices',
         'api': 'Real-Time Settlement Point Prices (SPP)',
-        'coverage': 'ERCOT weather zones (8 zones)',
-        'update_frequency': 'Every 6 hours via automated ETL',
+        'coverage': '15 settlement points (9 major hubs + 6 strategic nodes)',
+        'update_frequency': 'Source updates about every 5 minutes; dashboard ETL every 6 hours',
         'url': 'https://www.ercot.com/mp/data-products/data-product-details?id=NP6-785-ER',
     },
     'generation': {
         'status': 'live',
         'source': 'U.S. Energy Information Administration (EIA)',
-        'api': 'EIA v2 API - Operating Generator Capacity',
-        'coverage': 'Texas power plants ≥1 MW capacity',
-        'update_frequency': 'Monthly from EIA (manual ETL execution)',
+        'dataset': 'Operating generator capacity and EIA-923 facility-fuel',
+        'api': 'EIA v2 operating-generator-capacity + facility-fuel',
+        'coverage': 'Texas plants ≥1 MW with measured EIA-923 generation',
+        'update_frequency': 'Dashboard ETL every 6 hours; EIA publications are periodic',
         'url': 'https://www.eia.gov/opendata/',
     },
     'queue': {
         'status': 'live',
         'source': 'Electric Reliability Council of Texas (ERCOT)',
+        'dataset': 'Generator Interconnection Status (GIS) Report',
         'api': 'ERCOT Generator Interconnection Status (GIS) Report',
-        'coverage': 'Active interconnection queue (Large + Small Generator projects)',
-        'update_frequency': 'Monthly via ERCOT GIS Report publication; ETL checks every 6 hours',
+        'coverage': 'Public Large Gen and Small Gen detail sheets',
+        'update_frequency': 'ERCOT republishes monthly; dashboard ETL checks every 6 hours',
         'url': 'https://www.ercot.com/mp/data-products/data-product-details?id=PG7-200-ER',
     },
     'minerals': {
         'status': 'live',
-        'source': 'Manual Curation + Geological Surveys',
-        'api': 'Texas General Land Office, USGS, Industry Disclosures',
-        'coverage': 'REEs and Critical Minerals deposits in Texas',
-        'update_frequency': 'Manual updates as new deposits are discovered',
+        'source': 'Compiled from public geological surveys and industry disclosures',
+        'dataset': 'Texas mineral deposits (manually curated)',
+        'api': 'Texas General Land Office, USGS, industry disclosures',
+        'coverage': 'Selected REE and critical-mineral deposits in Texas',
+        'update_frequency': 'Manual; not an automated feed',
         'url': 'https://www.glo.texas.gov/',
+        'public_note': 'Not comparable in freshness or completeness to EIA or ERCOT automated feeds.',
         'note': 'Data compiled from GLO reports, USGS surveys, and industry announcements'
     }
 }
@@ -77,33 +84,44 @@ def get_data_status_badge(dataset: str) -> str:
     else:
         return "❓ **Unknown Status**"
 
-def render_data_source_footer(dataset: str, last_updated: Optional[str] = None) -> None:
+def render_freshness_banner(label: str, timestamp: str) -> None:
+    """Prominent last-updated indicator (pre-cleanup green status box)."""
+    st.success(f"**{label}** — Last Updated: {timestamp}")
+
+
+def render_data_source_footer(
+    dataset: str,
+    last_updated: Optional[str] = None,
+    *,
+    data_through: Optional[str] = None,
+) -> None:
     """
-    Render a standardized footer with data source information.
-    
-    Args:
-        dataset: Dataset name for source lookup
-        last_updated: Last update timestamp (if available)
+    Compact source / freshness line for the bottom of a data tab.
+
+    Distinguishes the underlying source period (`data_through`) from the
+    dashboard ETL write time (`last_updated`).
     """
     if dataset not in DATA_SOURCES:
         st.error(f"Unknown dataset: {dataset}")
         return
-    
+
     source_info = DATA_SOURCES[dataset]
     status = source_info['status']
-    
-    # Status indicator
+
     st.markdown("---")
-    
+
     if status == 'live':
-        # Clean, professional footer for live data
-        st.markdown(f"""
-        **Data Source:** {source_info['source']}  
-        **API:** {source_info['api']}  
-        **Updates:** {source_info['update_frequency']}  
-        {f"**Last Updated:** {last_updated}" if last_updated else ""}
-        """)
-        
+        dataset_label = source_info.get('dataset') or source_info.get('api', '')
+        lines = [f"Source: {source_info['source']} · {dataset_label}"]
+        if data_through:
+            lines.append(f"Data through: {data_through}")
+        if last_updated:
+            lines.append(f"Dashboard refreshed: {last_updated}")
+        note = source_info.get('public_note')
+        if note:
+            lines.append(note)
+        st.caption("  \n".join(lines))
+
     elif status == 'demo':
         # Red warning box for demo data - intentionally temporary looking
         st.markdown(f"""

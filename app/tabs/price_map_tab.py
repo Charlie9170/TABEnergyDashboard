@@ -1,11 +1,9 @@
 """
 Price Map Tab - ERCOT Real-Time LMP Visualization
 
-Displays real-time electricity prices across ERCOT weather zones:
-- Live data from ERCOT Public API (updates every 5 minutes)
-- Interactive map with prices by geographic zone
-- Color-coded by price levels (green=low, red=high)
-- Auto-updates every 15 minutes via GitHub Actions
+Displays real-time electricity prices across 15 ERCOT settlement points
+(9 major hubs + 6 strategic nodes).
+Source: ERCOT public real-time SPP page; dashboard ETL every 6 hours.
 """
 
 import streamlit as st
@@ -18,7 +16,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.data_sources import render_data_source_footer
+from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
 
@@ -27,12 +25,15 @@ def render():
     """Render the Price Map tab with real-time ERCOT LMP data."""
     
     # Header - ultra compact
-    st.markdown("### ERCOT Real-Time Price Map")
+    st.subheader(
+        "ERCOT Real-Time Price Map",
+        help="Settlement point prices at 15 ERCOT locations (9 major hubs and 6 strategic nodes).",
+    )
     
     # Compact advocacy message - single line, non-intrusive
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+                margin: 12px 0 8px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business supports competitive wholesale markets 
         that keep Texas energy costs among the lowest in the nation.
     </div>
@@ -163,8 +164,6 @@ def render():
         
         st.markdown("")  # Spacing
         
-        st.markdown("---")
-        
         # Create Plotly Scattermapbox for reliable tooltips
         # Color scale based on price quantiles (coral/red matching other tabs)
         color_map = {
@@ -236,18 +235,19 @@ def render():
         
         # Render Plotly map
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Data status indicator - standardized format matching other tabs
+
         if 'last_updated' in df.columns:
             last_update = pd.to_datetime(df['last_updated'].iloc[0])
-            timestamp = last_update.strftime('%Y-%m-%d %H:%M:%S')
-            st.success(f"**ERCOT Real-Time LMP** - Last Updated: {timestamp}")
+            render_freshness_banner(
+                "ERCOT Real-Time LMP",
+                last_update.strftime('%Y-%m-%d %H:%M:%S'),
+            )
         
         # Data Export Section
         st.markdown("---")
         col1, col2 = st.columns([3, 1])
         with col1:
-            st.markdown("**Download Real-Time LMP Data** (ERCOT Zone Aggregates)")
+            st.markdown("**Download Real-Time LMP Data**")
         with col2:
             create_download_button(
                 df=df,
@@ -255,9 +255,19 @@ def render():
                 label="Download LMP Data"
             )
         
-        # Data source footer
-        last_updated = get_last_updated(df)
-        render_data_source_footer('price_map', last_updated)
+        data_through = None
+        if 'oper_day' in df.columns and 'interval_end' in df.columns:
+            oper_day = str(df['oper_day'].iloc[0])
+            interval_end = str(df['interval_end'].iloc[0]).strip()
+            if interval_end.isdigit() and len(interval_end) <= 4:
+                padded = interval_end.zfill(4)
+                interval_end = f"{padded[:2]}:{padded[2:]}"
+            data_through = f"{oper_day}, interval ending {interval_end}"
+        render_data_source_footer(
+            'price_map',
+            get_last_updated(df),
+            data_through=data_through,
+        )
         
     except KeyError as e:
         st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
@@ -272,4 +282,4 @@ def render():
     except Exception as e:
         st.error(f"❌ **Unexpected error loading price map**: {str(e)}")
         st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/price_map_etl.py", language="bash")
+        st.code("python etl/ercot_lmp_etl.py", language="bash")

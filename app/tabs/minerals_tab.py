@@ -16,8 +16,8 @@ from typing import Optional
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.loaders import load_parquet, get_last_updated, get_file_modification_time
-from utils.data_sources import render_data_source_footer
+from utils.loaders import load_parquet, get_last_updated
+from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
 from utils.table_styling import apply_professional_table_style
@@ -438,12 +438,15 @@ def render():
     """Main render function for Minerals & Critical Minerals tab."""
     
     # Minimal header - ultra compact (matching Generation tab)
-    st.markdown("### Minerals & Critical Minerals")
+    st.subheader(
+        "Minerals & Critical Minerals",
+        help="Manually compiled Texas deposits from public geological surveys and industry disclosures.",
+    )
     
     # Add advocacy message (custom HTML matching Generation tab style)
     st.markdown("""
     <div style="padding: 8px 12px; background-color: #f8f9fa; border-left: 3px solid #1f4788; 
-                margin: 12px 0 20px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
+                margin: 12px 0 8px 0; font-size: 14px; color: #4b5563; line-height: 1.5;">
         <strong>TAB Policy:</strong> Texas Association of Business supports responsible development of Texas' mineral resources to strengthen supply chain security and energy infrastructure.
     </div>
     """, unsafe_allow_html=True)
@@ -453,21 +456,14 @@ def render():
         df = load_parquet("minerals_deposits.parquet", "minerals", allow_empty=False)
         
         if df is None or df.empty:
-            st.warning(
-                "⚠️ No mineral deposit data available. "
-                "Run `python etl/mineral_etl.py` to generate data."
-            )
+            st.warning("Mineral deposit data is not available.")
             return
         
         # Summary cards
         render_summary_cards(df)
         
-        st.markdown("---")
-        
-        # Filter controls
-        # Map section - full width like Generation tab
-        map_df = df.copy()  # Start with all data for map
-        st.subheader("Interactive Deposit Map")
+        map_df = df.copy()
+        st.subheader("Deposit Map")
         
         if not map_df.empty:
             deck = create_minerals_map(map_df)
@@ -478,11 +474,8 @@ def render():
         else:
             st.info("No deposits match the selected filters")
         
-        # Data status indicator
-        st.success(f"**Live Data**: Texas Mineral Deposits Database - {len(map_df)} deposits from manual curation & geological surveys")
-        
-        # Enhanced legend with colors
         render_minerals_legend(map_df)
+        render_freshness_banner("Minerals Data", get_last_updated(df))
         
         st.markdown("---")
         
@@ -523,7 +516,21 @@ def render():
         # Deposits table
         render_deposits_table(df, filters)
         
-        # Data Export Section (matching Generation tab)
+        with st.expander("Methodology"):
+            st.markdown(
+                """
+                This dataset is a **manual compilation** of publicly disclosed Texas deposits.
+                It is not an automated EIA or ERCOT feed and should not be treated as complete
+                or current to a fixed reporting period.
+
+                **Development status**
+                - **Major**: Active large-scale development
+                - **Early**: Initial production or facility operations
+                - **Exploratory**: Geological surveys and feasibility studies
+                - **Discovery**: Initial prospecting and identification
+                """
+            )
+
         st.markdown("---")
         col1, col2 = st.columns([3, 1])
         with col1:
@@ -536,47 +543,10 @@ def render():
                 label="Download Deposits Data"
             )
         
-        # Data source footer
-        last_updated = get_last_updated(df)
-        render_data_source_footer("minerals", last_updated)
+        render_data_source_footer("minerals", get_last_updated(df))
         
-        # TODO section for manual updates
-        with st.expander("📝 Manual Data Update Instructions"):
-            st.markdown(
-                """
-                **To add or update mineral deposits:**
-                
-                1. Edit `data/manual_mineral_deposits.csv` with new deposit information
-                2. Run the ETL script: `python etl/mineral_etl.py`
-                3. Refresh this dashboard to see updated data
-                
-                **Required CSV columns:**
-                - `deposit_name`: Name of the deposit/site
-                - `lat`: Latitude (decimal degrees)
-                - `lon`: Longitude (decimal degrees)
-                - `minerals`: Comma-separated list of minerals
-                - `estimated_tonnage`: Estimated tonnage in metric tons (or 0 for TBD)
-                - `development_status`: Major, Early, Exploratory, or Discovery
-                - `county`: Texas county name
-                - `details`: Additional notes and description
-                
-                **Development Status Definitions:**
-                - **Major**: Active large-scale development (e.g., Round Top Mountain, Smackover Formation)
-                - **Early**: Initial production or facility operations (e.g., Zinc, Helium plants)
-                - **Exploratory**: Geological surveys and feasibility studies
-                - **Discovery**: Initial prospecting and identification
-                
-                **For GeoJSON/Shapefile Data:**
-                TODO: Implement GeoJSON loading in `etl/mineral_etl.py` when shapefile sources become available.
-                Place GeoJSON files in `data/mineral_deposits.geojson` and update the ETL script.
-                """
-            )
-        
-    except Exception as e:
-        st.error(f"Error loading mineral deposit data: {e}")
-        st.info(
-            "If you haven't generated the data yet, run: `python etl/mineral_etl.py`"
-        )
+    except Exception:
+        st.error("Error loading mineral deposit data.")
 
 
 if __name__ == "__main__":

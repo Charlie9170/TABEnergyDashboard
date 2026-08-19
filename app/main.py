@@ -10,7 +10,7 @@ Features:
 - Power generation facilities mapping
 - Energy market data visualization
 
-Data sources: U.S. EIA, ERCOT CDR Reports
+Data sources: U.S. EIA, ERCOT public reports
 Updated via robust ETL processes.
 """
 
@@ -485,8 +485,8 @@ st.markdown("""
     <div class="footer-tagline">Pro Business, Pro Texas | The Texas State Chamber</div>
     <div class="footer-details">
         Professional Energy Market Intelligence<br>
-        Data Sources: U.S. EIA, ERCOT CDR Reports | Updated via automated ETL processes<br>
-        © 2025 Texas Association of Business. All rights reserved.
+        Data Sources: U.S. EIA, ERCOT | Updated via automated ETL processes<br>
+        © 2026 Texas Association of Business. All rights reserved.
     </div>
 </div>
 """, unsafe_allow_html=True)
