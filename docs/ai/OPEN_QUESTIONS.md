@@ -84,23 +84,22 @@ The script docstring says "EIA v2 API - Operating Generator Capacity" but the ex
 
 ## Architecture
 
-### OQ-007: What is the Streamlit Cloud application URL?
+### OQ-007: ~~What is the Streamlit Cloud application URL?~~ — RESOLVED 2026-08-19
 
-The deployment URL for the live dashboard is not documented in the repository.
-
-**Question:** What is the production URL?
-
-**Status:** Unresolved — not present in any repository file.
+`https://tabenergy.streamlit.app/`, now recorded in `README.md` and
+`docs/HANDOFF.md`. It was absent from every repository file, so it came from the repo
+owner rather than from code.
 
 ---
 
-### OQ-008: Is `data/mineral_polygons_v2.json` used and how?
+### OQ-008: ~~Is `data/mineral_polygons_v2.json` used and how?~~ — RESOLVED 2026-08-19
 
-The file `data/mineral_polygons_v2.json` is committed to the repository but is not listed in the `.gitignore` exclusion for `data/*.json`.
-
-**Question:** Is this file actively used by `app/tabs/minerals_tab.py`? What format does it expect?
-
-**Status:** Unresolved — requires reading `app/tabs/minerals_tab.py` in full.
+Yes. `load_polygon_data()` in `app/tabs/minerals_tab.py` reads it at runtime as a
+GeoJSON FeatureCollection to draw formation overlays on the deposit map, falling back
+to `data/mineral_polygons.json` and then to no overlay if neither exists. `.gitignore`
+now carries an explicit `!data/mineral_polygons_v2.json` negation, so the file is no
+longer merely tracked-in-spite-of `data/*.json`.
+*(verified: `app/tabs/minerals_tab.py`, `.gitignore`)*
 
 ---
 

@@ -2,6 +2,8 @@
 
 An automated, real-time visualization dashboard for ERCOT electricity data and Texas energy infrastructure.
 
+**Live dashboard: https://tabenergy.streamlit.app/**
+
 ![Dashboard](https://img.shields.io/badge/streamlit-live-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
