@@ -7,6 +7,7 @@ Displays hourly electricity generation data from ERCOT by fuel type:
 - Data sourced from EIA API (respondent=ERCO)
 """
 
+import logging
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -17,10 +18,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.colors import FUEL_COLORS_HEX, is_renewable, get_fuel_color_hex
-from utils.data_sources import render_data_source_footer, render_freshness_banner
+from utils.colors import is_renewable, get_fuel_color_hex
+from utils.data_sources import format_ct, render_data_source_footer, render_freshness_banner
 from utils.export import create_download_button
-from utils.advocacy import render_advocacy_message
+
+logger = logging.getLogger(__name__)
 
 
 def render():
@@ -47,9 +49,8 @@ def render():
         
         # Check if data is empty
         if df is None or len(df) == 0:
-            st.warning("⚠️ **No fuel mix data available**")
-            st.info("Run the ETL scripts to fetch fresh data from EIA.")
-            st.code("python etl/eia_fuelmix_etl.py", language="bash")
+            logger.warning("Fuel mix data unavailable: fuelmix.parquet empty or missing")
+            st.warning("Fuel mix data temporarily unavailable.")
             return
         
         # Convert period to Central Time for display
@@ -158,10 +159,10 @@ def render():
         
         st.plotly_chart(fig, use_container_width=True)
 
-        latest_hour = pd.to_datetime(df['period'].max())
         render_freshness_banner(
             "ERCOT Fuel Mix Data",
-            latest_hour.strftime('%Y-%m-%d %H:%M:%S'),
+            df['period'].max(),
+            meaning="vintage",
         )
         
         # Data Export Section
@@ -176,25 +177,21 @@ def render():
                 label="Download Fuel Mix Data"
             )
         
-        latest_period = df['period_ct'].max()
-        data_through = latest_period.strftime('%b %d, %Y %H:%M CT') if pd.notna(latest_period) else None
+        latest_period = df['period'].max()
         render_data_source_footer(
             'fuelmix',
             get_last_updated(df),
-            data_through=data_through,
+            data_through=format_ct(latest_period) if pd.notna(latest_period) else None,
         )
         
-    except KeyError as e:
-        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
-        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
-        st.code("python etl/eia_fuelmix_etl.py", language="bash")
-        
+    except KeyError:
+        logger.exception("Fuel mix tab: missing required column")
+        st.warning("Fuel mix data temporarily unavailable.")
+
     except pd.errors.EmptyDataError:
-        st.warning("⚠️ **No data available**")
-        st.info("🔄 Run the ETL script to fetch fresh fuel mix data.")
-        st.code("python etl/eia_fuelmix_etl.py", language="bash")
-        
-    except Exception as e:
-        st.error(f"❌ **Unexpected error loading fuel mix data**: {str(e)}")
-        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/eia_fuelmix_etl.py", language="bash")
+        logger.exception("Fuel mix tab: empty data file")
+        st.warning("Fuel mix data temporarily unavailable.")
+
+    except Exception:
+        logger.exception("Fuel mix tab: unexpected error")
+        st.warning("Fuel mix data temporarily unavailable.")

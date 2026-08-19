@@ -39,7 +39,7 @@ import os
 import sys
 from datetime import datetime, UTC
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 import hashlib
 import tempfile
 import shutil

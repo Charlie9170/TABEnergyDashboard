@@ -5,6 +5,7 @@ Fixed implementation with proper coordinate validation, logarithmic scaling,
 and TAB color scheme for production-ready visualization.
 """
 
+import logging
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
@@ -17,10 +18,10 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.data_sources import render_data_source_footer
-from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
+from utils.data_sources import format_ct, render_data_source_footer
 from utils.export import create_download_button
-from utils.advocacy import render_advocacy_message
+
+logger = logging.getLogger(__name__)
 
 # Default view = projects with a signed interconnection agreement (SGIA / IA).
 # ERCOT Planning Guide §5.1.1: a "large generator" is ≥10 MW; GIS already splits
@@ -223,9 +224,8 @@ def render():
 
         # Check if data is empty
         if len(df) == 0:
-            st.warning("⚠️ **No projects in queue**")
-            st.info("🔄 The data file is empty. Re-run the ETL script.")
-            st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+            logger.warning("Queue data unavailable: queue.parquet is empty")
+            st.warning("Queue data temporarily unavailable.")
             return
 
         # Headline metrics use the complete parsed queue (or IA-signed subset).
@@ -233,7 +233,8 @@ def render():
         required_cols = ['proposed_mw', 'project_name', 'fuel', 'status']
         missing_cols = [col for col in required_cols if col not in df.columns]
         if missing_cols:
-            st.error(f"❌ **Missing required columns**: {missing_cols}")
+            logger.error("Queue tab: missing required columns %s", missing_cols)
+            st.warning("Queue data temporarily unavailable.")
             return
 
         ia_count = int((df["status"] == COMMITTED_STATUS).sum())
@@ -341,7 +342,7 @@ def render():
         st.info(
             f"**Showing: {view_label}.** "
             "Republished monthly — not a real-time feed. "
-            f"Last processed: {last_processed}."
+            f"Last refreshed: {format_ct(last_processed)}."
         )
 
         st.subheader("Queue Composition by Technology")
@@ -418,17 +419,14 @@ def render():
             data_through=data_through,
         )
 
-    except KeyError as e:
-        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
-        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
-        st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+    except KeyError:
+        logger.exception("Queue tab: missing required column")
+        st.warning("Queue data temporarily unavailable.")
 
     except pd.errors.ParserError:
-        st.error(f"❌ **File Corrupted**: Unable to read queue data")
-        st.info("🔄 The parquet file may be damaged. Re-run the ETL script.")
-        st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+        logger.exception("Queue tab: unable to read queue data")
+        st.warning("Queue data temporarily unavailable.")
 
-    except Exception as e:
-        st.error(f"❌ **Unexpected error loading queue data**: {str(e)}")
-        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/ercot_gis_queue_etl.py", language="bash")
+    except Exception:
+        logger.exception("Queue tab: unexpected error")
+        st.warning("Queue data temporarily unavailable.")

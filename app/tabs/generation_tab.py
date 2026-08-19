@@ -1,3 +1,4 @@
+import logging
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
@@ -6,9 +7,10 @@ import math
 
 from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.colors import FUEL_COLORS_HEX, get_fuel_color_hex
-from utils.loaders import get_last_updated, get_file_modification_time, load_parquet
+from utils.loaders import get_last_updated, load_parquet
 from utils.export import create_download_button
-from utils.advocacy import render_advocacy_message
+
+logger = logging.getLogger(__name__)
 
 
 def generation_period_subtitle(df: pd.DataFrame) -> str:
@@ -234,9 +236,8 @@ def render():
         
         # Check if data is empty
         if len(df) == 0:
-            st.warning("⚠️ **No generation facilities found**")
-            st.info("🔄 The data file is empty. Re-run the ETL script.")
-            st.code("python etl/eia_plants_etl.py", language="bash")
+            logger.warning("Generation data unavailable: generation.parquet is empty")
+            st.warning("Generation data temporarily unavailable.")
             return
         
         # Clean and aggregate data
@@ -244,9 +245,11 @@ def render():
         gen_subtitle = generation_period_subtitle(clean_df)
 
         if 'actual_generation_mw' not in clean_df.columns or clean_df['actual_generation_mw'].isna().all():
-            st.warning("⚠️ **No measured generation data in this file**")
-            st.info("Re-run the ETL to refresh from EIA facility-fuel (Form EIA-923).")
-            st.code("python etl/eia_plants_etl.py", language="bash")
+            logger.warning(
+                "Generation data has no measured actual_generation_mw values "
+                "(column present=%s)", 'actual_generation_mw' in clean_df.columns
+            )
+            st.warning("Generation data temporarily unavailable.")
             return
         
         total_plants = len(clean_df)
@@ -307,10 +310,7 @@ def render():
         
         # Horizontal legend right under map - matching Fuel Mix style
         render_legend_and_counts(clean_df)
-        render_freshness_banner(
-            "EIA Generation Facilities",
-            get_file_modification_time("generation.parquet"),
-        )
+        render_freshness_banner("EIA Generation Facilities", get_last_updated(df))
         
         # Fuel breakdown chart - using actual generation
         st.subheader("Generation Mix by Fuel Type")
@@ -394,13 +394,14 @@ def render():
             data_through=period_label,
         )
         
-    except KeyError as e:
-        st.error("Generation data is missing a required column.")
-        st.caption(str(e))
-        
+    except KeyError:
+        logger.exception("Generation tab: missing required column")
+        st.warning("Generation data temporarily unavailable.")
+
     except pd.errors.ParserError:
-        st.error("Generation data could not be read. Try refreshing the page.")
-        
-    except Exception as e:
-        st.error("This view could not be displayed. Try refreshing the page.")
-        st.caption(str(e))
+        logger.exception("Generation tab: unable to read generation data")
+        st.warning("Generation data temporarily unavailable.")
+
+    except Exception:
+        logger.exception("Generation tab: unexpected error")
+        st.warning("Generation data temporarily unavailable.")

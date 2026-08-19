@@ -1,12 +1,19 @@
 """
 Data source tracking and citation utilities.
 
-Provides consistent data source indicators and citations across all dashboard tabs.
-Helps users understand which data is real vs. demo/placeholder.
+Provides consistent data source citations across all dashboard tabs.
 """
 
-from typing import Dict, Tuple, Optional
+from typing import Any, Optional
+from zoneinfo import ZoneInfo
+
+import pandas as pd
 import streamlit as st
+
+# Every writer (ETL scripts, CI) stores timestamps in UTC. Display is Central
+# Time because the audience is Texas; ZoneInfo handles CST/CDT so the offset is
+# never hardcoded.
+CENTRAL_TZ = ZoneInfo("America/Chicago")
 
 # Data source registry - tracks status of each dataset
 DATA_SOURCES = {
@@ -60,33 +67,35 @@ DATA_SOURCES = {
     }
 }
 
-def get_data_status_badge(dataset: str) -> str:
+def format_ct(value: Any) -> str:
     """
-    Get a colored status badge for a dataset.
-    
-    Args:
-        dataset: Dataset name (fuelmix, price_map, generation, queue)
-        
-    Returns:
-        HTML badge indicating data status
-    """
-    if dataset not in DATA_SOURCES:
-        return "❓ **Unknown**"
-    
-    status = DATA_SOURCES[dataset]['status']
-    
-    if status == 'live':
-        return "🟢 **LIVE DATA**"
-    elif status == 'demo':
-        return "🟡 **DEMO DATA**"
-    elif status == 'stub':
-        return "🔴 **NOT IMPLEMENTED**"
-    else:
-        return "❓ **Unknown Status**"
+    Render a stored UTC timestamp in Central Time, labeled "CT".
 
-def render_freshness_banner(label: str, timestamp: str) -> None:
-    """Prominent last-updated indicator (pre-cleanup green status box)."""
-    st.success(f"**{label}** — Last Updated: {timestamp}")
+    Conversion happens at display time only — stored values stay UTC. Naive
+    inputs are read as UTC, which is what every ETL writes. Values that are not
+    timestamps at all (e.g. "Unknown") pass through unchanged.
+    """
+    if value is None or value == "":
+        return "Unavailable"
+
+    moment = pd.to_datetime(value, utc=True, errors="coerce")
+    if pd.isna(moment):
+        return str(value)
+
+    central = moment.tz_convert(CENTRAL_TZ)
+    return f"{central.strftime('%b %d, %Y')} {central.strftime('%I:%M %p').lstrip('0')} CT"
+
+
+def render_freshness_banner(label: str, timestamp: Any, *, meaning: str = "refreshed") -> None:
+    """
+    Prominent freshness indicator (green status box).
+
+    `meaning` separates the two things a timestamp can mean: "refreshed" is when
+    this dashboard last pulled the data, "vintage" is how current the source data
+    itself is. They are usually hours apart, so they cannot share one label.
+    """
+    prefix = "Data through" if meaning == "vintage" else "Last refreshed"
+    st.success(f"**{label}** — {prefix}: {format_ct(timestamp)}")
 
 
 def render_data_source_footer(
@@ -116,103 +125,8 @@ def render_data_source_footer(
         if data_through:
             lines.append(f"Data through: {data_through}")
         if last_updated:
-            lines.append(f"Dashboard refreshed: {last_updated}")
+            lines.append(f"Last refreshed: {format_ct(last_updated)}")
         note = source_info.get('public_note')
         if note:
             lines.append(note)
         st.caption("  \n".join(lines))
-
-    elif status == 'demo':
-        # Red warning box for demo data - intentionally temporary looking
-        st.markdown(f"""
-        <div style="
-            background-color: #fef2f2; 
-            border: 3px dashed #dc2626; 
-            padding: 15px; 
-            border-radius: 8px; 
-            margin: 10px 0;
-            color: #991b1b;
-            font-weight: bold;
-        ">
-            TEMPORARY DEMO DATA<br>
-            <span style="font-size: 0.9em;">This section uses sample data for development only.</span><br>
-            <span style="font-size: 0.8em; font-weight: normal;">
-                <strong>Will be replaced with:</strong> {source_info['target_source']}<br>
-                <strong>Note:</strong> {source_info['note']}
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-        
-    elif status == 'stub':
-        # Orange construction box for not implemented features
-        st.markdown(f"""
-        <div style="
-            background-color: #fef3c7; 
-            border: 3px dashed #d97706; 
-            padding: 15px; 
-            border-radius: 8px; 
-            margin: 10px 0;
-            color: #92400e;
-            font-weight: bold;
-        ">
-            FEATURE NOT IMPLEMENTED<br>
-            <span style="font-size: 0.9em;">This tab is a placeholder showing the planned interface.</span><br>
-            <span style="font-size: 0.8em; font-weight: normal;">
-                <strong>Planned Source:</strong> {source_info['target_source']}<br>
-                <strong>Implementation:</strong> {source_info['note']}
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-
-def render_dashboard_disclaimer() -> None:
-    """
-    Render a global dashboard disclaimer about data sources.
-    Call this at the bottom of the main app.
-    """
-    st.markdown("---")
-    st.markdown("""
-    ### Dashboard Status
-    
-    This energy dashboard is under active development with mixed data sources:
-    
-    - **Live Data**: Real-time integration with automated updates
-    - **Demo Data**: Sample data for development and testing  
-    - **Not Implemented**: Planned features with empty schemas
-    
-    **Development Goal**: Migrate all data sources to live, automated feeds for a comprehensive 
-    view of the Texas electricity market.
-    """)
-    
-    # Summary table
-    st.markdown("#### Current Implementation Status")
-    
-    status_data = []
-    for dataset, info in DATA_SOURCES.items():
-        status_label = {
-            'live': 'Live',
-            'demo': 'Demo', 
-            'stub': 'Stub'
-        }.get(info['status'], 'Unknown')
-        
-        dataset_name = {
-            'fuelmix': 'ERCOT Fuel Mix',
-            'price_map': 'Price Map',
-            'generation': 'Generation Map', 
-            'queue': 'Interconnection Queue'
-        }.get(dataset, dataset)
-        
-        status_data.append({
-            'Feature': dataset_name,
-            'Status': status_label,
-            'Source': info.get('source', 'Unknown')
-        })
-    
-    df_status = st.dataframe(status_data, hide_index=True)
-    
-    st.markdown("""
-    <div style="text-align: center; font-size: 0.9em; color: #6b7280; margin-top: 1rem;">
-        <strong>Texas Association of Business Energy Dashboard</strong> • 
-        Built with Streamlit • Data via EIA API • 
-        <a href="https://github.com/Charlie9170/TABEnergyDashboard" target="_blank" style="color: #16a34a;">View Source</a>
-    </div>
-    """, unsafe_allow_html=True)

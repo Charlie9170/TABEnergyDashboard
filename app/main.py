@@ -14,13 +14,15 @@ Data sources: U.S. EIA, ERCOT public reports
 Updated via robust ETL processes.
 """
 
+import logging
 import streamlit as st
 from pathlib import Path
-from typing import Any, Dict
 import sys
 
 # Add app directory to path for module imports
 sys.path.insert(0, str(Path(__file__).parent))
+
+logger = logging.getLogger(__name__)
 
 # Configure Plotly with TAB Design System
 try:
@@ -441,24 +443,9 @@ def safe_render_tab(render_func, tab_name: str):
     """
     try:
         render_func()
-    except Exception as e:
-        st.error(f"❌ **Error Loading {tab_name} Tab**")
-        st.warning("⚠️ **Other tabs remain functional** - Try clicking a different tab above")
-        
-        with st.expander("🔍 **Technical Details** (for debugging)"):
-            st.code(str(e), language="python")
-            import traceback
-            st.code(traceback.format_exc(), language="python")
-        
-        st.info("""
-        **Troubleshooting Steps:**
-        1. Try refreshing the page (F5 or Cmd+R)
-        2. Clear browser cache and reload
-        3. Run ETL scripts to regenerate data
-        4. Check logs for detailed errors
-        
-        **Other tabs are still available!** Click a different tab above.
-        """)
+    except Exception:
+        logger.exception("Tab render failed: %s", tab_name)
+        st.warning("This section is temporarily unavailable. Other tabs remain available.")
 
 with tab1:
     safe_render_tab(fuelmix_tab.render, "Fuel Mix")

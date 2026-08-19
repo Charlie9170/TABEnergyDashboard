@@ -9,12 +9,14 @@ Provides cached data loaders that:
 - Show clear error messages if validation fails
 """
 
-import os
+import logging
 import streamlit as st
 import pandas as pd
 from pathlib import Path
 
 from .schema import normalize_columns, coerce_types, validate, get_schema
+
+logger = logging.getLogger(__name__)
 
 
 def get_data_path(filename: str) -> Path:
@@ -60,11 +62,8 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
     
     # Check if file exists
     if not filepath.exists():
-        error_msg = f"❌ Data file not found: `{filename}`"
-        st.warning(error_msg)
-        st.info("🔄 This tab will display with empty data. Other tabs remain functional.")
-        st.info("💡 Run ETL scripts to populate data:")
-        st.code(f"python etl/{dataset}_etl.py", language="bash")
+        logger.warning("Data file not found: %s (dataset=%s, path=%s)", filename, dataset, filepath)
+        st.warning("Data temporarily unavailable.")
         # Return empty DataFrame with proper schema (NEVER use st.stop())
         schema = get_schema(dataset)
         return pd.DataFrame(columns=list(schema.keys()))
@@ -75,9 +74,8 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         
         # Handle completely empty files
         if len(df) == 0:
-            st.warning(f"⚠️ Data file `{filename}` is empty")
-            st.info("🔄 This tab will show no data. Run ETL scripts to populate.")
-            st.info("✅ Other tabs remain functional.")
+            logger.warning("Data file is empty: %s (dataset=%s)", filename, dataset)
+            st.warning("No data available for this view.")
             # Return empty DataFrame (NEVER use st.stop())
             return df
         
@@ -92,17 +90,16 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         
         if missing:
             # Graceful degradation: Show error but DON'T stop entire app
-            st.error(f"❌ Missing required columns in `{filename}`: {missing}")
-            st.info(f"Expected schema: {get_schema(dataset)}")
-            st.info(f"Found columns: {list(df.columns)}")
-            st.warning("⚠️ This tab may not function correctly. Other tabs remain available.")
-            
+            logger.error(
+                "Schema validation failed for %s (dataset=%s): missing=%s, expected=%s, found=%s",
+                filename, dataset, missing, list(get_schema(dataset).keys()), list(df.columns),
+            )
+            st.warning("Some data is temporarily unavailable.")
+
             if allow_empty:
-                st.info("🔄 Using partial data. Some features may not work.")
                 return df  # Return partial data
             else:
                 # Return empty DataFrame with proper schema instead of st.stop()
-                st.info("📊 Returning empty dataset. Please run ETL scripts to fix.")
                 schema = get_schema(dataset)
                 return pd.DataFrame(columns=list(schema.keys()))
         
@@ -112,20 +109,16 @@ def load_parquet(filename: str, dataset: str, allow_empty: bool = False) -> pd.D
         
         return df
         
-    except pd.errors.ParserError as e:
-        error_msg = f"❌ Corrupted data file `{filename}`: {str(e)}"
-        st.error(error_msg)
-        st.info("🔄 File may be corrupted. Try re-running ETL scripts.")
-        st.warning("⚠️ This tab will show empty data. Other tabs remain functional.")
+    except pd.errors.ParserError:
+        logger.exception("Failed to parse data file %s (dataset=%s)", filename, dataset)
+        st.warning("Data temporarily unavailable.")
         # Return empty DataFrame (NEVER use st.stop())
         schema = get_schema(dataset)
         return pd.DataFrame(columns=list(schema.keys()))
-            
-    except Exception as e:
-        error_msg = f"❌ Unexpected error loading `{filename}`: {str(e)}"
-        st.error(error_msg)
-        st.info("🔄 Please check the data file and ETL scripts.")
-        st.warning("⚠️ This tab will show empty data. Other tabs remain functional.")
+
+    except Exception:
+        logger.exception("Unexpected error loading %s (dataset=%s)", filename, dataset)
+        st.warning("Data temporarily unavailable.")
         # Return empty DataFrame (NEVER use st.stop())
         schema = get_schema(dataset)
         return pd.DataFrame(columns=list(schema.keys()))
@@ -152,27 +145,6 @@ def get_last_updated(df: pd.DataFrame) -> str:
                 return str(non_null_values.iloc[0])
         
         return 'Unknown'
-    except Exception as e:
-        return f'Error: {str(e)}'
-
-
-@st.cache_data(ttl=60)  # Cache for 1 minute
-def get_file_modification_time(filename: str) -> str:
-    """
-    Get the last modification time of a data file.
-    
-    Args:
-        filename: Name of the data file (e.g., 'fuelmix.parquet')
-        
-    Returns:
-        Last modification time as formatted string, or 'Unknown' if error
-    """
-    try:
-        filepath = get_data_path(filename)
-        if filepath.exists():
-            import datetime
-            mod_time = datetime.datetime.fromtimestamp(filepath.stat().st_mtime)
-            return mod_time.strftime("%Y-%m-%d %H:%M:%S")
-        return 'File not found'
-    except Exception as e:
-        return f'Error: {str(e)}'
+    except Exception:
+        logger.exception("Failed to read last_updated from dataframe")
+        return 'Unavailable'

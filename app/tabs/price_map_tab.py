@@ -6,6 +6,7 @@ Displays real-time electricity prices across 15 ERCOT settlement points
 Source: ERCOT public real-time SPP page; dashboard ETL every 6 hours.
 """
 
+import logging
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,7 +19,8 @@ sys.path.append(str(Path(__file__).parent.parent))
 from utils.loaders import load_parquet, get_last_updated
 from utils.data_sources import render_data_source_footer, render_freshness_banner
 from utils.export import create_download_button
-from utils.advocacy import render_advocacy_message
+
+logger = logging.getLogger(__name__)
 
 
 def render():
@@ -57,9 +59,8 @@ def render():
         
         # Check if data is empty
         if df is None or len(df) == 0:
-            st.warning("⚠️ **No price data available**")
-            st.info("Run the ETL script to fetch real-time ERCOT LMP data.")
-            st.code("python etl/ercot_lmp_etl.py", language="bash")
+            logger.warning("Price map data unavailable: price_map.parquet empty or missing")
+            st.warning("Price data temporarily unavailable.")
             return
         
         # Always show all 15 settlement points (9 hubs + 6 strategic nodes).
@@ -237,11 +238,7 @@ def render():
         st.plotly_chart(fig, use_container_width=True)
 
         if 'last_updated' in df.columns:
-            last_update = pd.to_datetime(df['last_updated'].iloc[0])
-            render_freshness_banner(
-                "ERCOT Real-Time LMP",
-                last_update.strftime('%Y-%m-%d %H:%M:%S'),
-            )
+            render_freshness_banner("ERCOT Real-Time LMP", df['last_updated'].iloc[0])
         
         # Data Export Section
         st.markdown("---")
@@ -269,17 +266,14 @@ def render():
             data_through=data_through,
         )
         
-    except KeyError as e:
-        st.error(f"❌ **Data Format Error**: Missing required column: {str(e)}")
-        st.info("🔄 The data file may be corrupted. Try re-running the ETL script.")
-        st.code("python etl/ercot_lmp_etl.py", language="bash")
-        
+    except KeyError:
+        logger.exception("Price map tab: missing required column")
+        st.warning("Price data temporarily unavailable.")
+
     except pd.errors.ParserError:
-        st.error(f"❌ **File Corrupted**: Unable to read price map data")
-        st.info("🔄 The parquet file may be damaged. Re-run the ETL script.")
-        st.code("python etl/ercot_lmp_etl.py", language="bash")
-        
-    except Exception as e:
-        st.error(f"❌ **Unexpected error loading price map**: {str(e)}")
-        st.info("🔄 Try refreshing the page. If the issue persists, re-run the ETL script.")
-        st.code("python etl/ercot_lmp_etl.py", language="bash")
+        logger.exception("Price map tab: unable to read price map data")
+        st.warning("Price data temporarily unavailable.")
+
+    except Exception:
+        logger.exception("Price map tab: unexpected error")
+        st.warning("Price data temporarily unavailable.")

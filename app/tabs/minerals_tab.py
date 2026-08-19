@@ -8,7 +8,6 @@ with development status classification and geographic visualization.
 import streamlit as st
 import pandas as pd
 import pydeck as pdk
-import math
 import json
 from pathlib import Path
 from typing import Optional
@@ -17,8 +16,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.data_sources import render_data_source_footer
-from utils.colors import TAB_COLORS, NEUTRAL_COLORS
+from utils.data_sources import format_ct, render_data_source_footer
 from utils.export import create_download_button
 from utils.table_styling import apply_professional_table_style
 
@@ -478,7 +476,7 @@ def render():
         st.info(
             "**Manually compiled Texas mineral deposits** from public geological surveys "
             "and industry disclosures. "
-            f"Last updated: {get_last_updated(df)}."
+            f"Last refreshed: {format_ct(get_last_updated(df))}."
         )
         
         st.markdown("---")

@@ -5,7 +5,7 @@ Public methodology and source notes for TAB members and policymakers.
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -14,17 +14,19 @@ import streamlit as st
 import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
-from utils.data_sources import DATA_SOURCES
+from utils.data_sources import CENTRAL_TZ, DATA_SOURCES
 from utils.loaders import get_data_path
 
 
 def get_file_timestamp(filename: str) -> str:
-    """Last modified time of a committed data file, or 'Not available'."""
+    """Last modified time of a committed data file in Central Time, or 'Not available'."""
     try:
         file_path = get_data_path(filename)
         if file_path.exists():
-            timestamp = datetime.fromtimestamp(file_path.stat().st_mtime)
-            return timestamp.strftime("%B %d, %Y at %I:%M %p CT")
+            # st_mtime is an absolute epoch; read it as UTC before converting so the
+            # displayed CT is correct no matter what the server's clock is set to.
+            timestamp = datetime.fromtimestamp(file_path.stat().st_mtime, tz=timezone.utc)
+            return timestamp.astimezone(CENTRAL_TZ).strftime("%B %d, %Y at %I:%M %p CT")
         return "Not available"
     except Exception:
         return "Not available"
@@ -182,5 +184,5 @@ def render():
         "info@txbiz.org · (512) 477-6721"
     )
     st.caption(
-        f"Page loaded {datetime.now().strftime('%B %d, %Y at %I:%M %p CT')}."
+        f"Page loaded {datetime.now(CENTRAL_TZ).strftime('%B %d, %Y at %I:%M %p CT')}."
     )
