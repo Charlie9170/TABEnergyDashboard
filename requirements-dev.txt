@@ -1,0 +1,5 @@
+# Dev-only dependencies for running tests locally.
+# NOT installed on Streamlit Cloud — that platform installs only requirements.txt
+# on every build, so anything here would add unnecessary weight/risk to production.
+-r requirements.txt
+pytest>=8.0.0
