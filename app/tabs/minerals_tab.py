@@ -17,7 +17,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.data_sources import render_data_source_footer, render_freshness_banner
+from utils.data_sources import render_data_source_footer
 from utils.colors import TAB_COLORS, NEUTRAL_COLORS
 from utils.export import create_download_button
 from utils.table_styling import apply_professional_table_style
@@ -475,7 +475,11 @@ def render():
             st.info("No deposits match the selected filters")
         
         render_minerals_legend(map_df)
-        render_freshness_banner("Minerals Data", get_last_updated(df))
+        st.info(
+            "**Manually compiled Texas mineral deposits** from public geological surveys "
+            "and industry disclosures. "
+            f"Last updated: {get_last_updated(df)}."
+        )
         
         st.markdown("---")
         

@@ -17,7 +17,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.loaders import load_parquet, get_last_updated
-from utils.data_sources import render_data_source_footer, render_freshness_banner
+from utils.data_sources import render_data_source_footer
 from utils.colors import get_fuel_color_hex, FUEL_COLORS_HEX
 from utils.export import create_download_button
 from utils.advocacy import render_advocacy_message
@@ -333,7 +333,6 @@ def render():
         )
 
         last_processed = get_last_updated(df_view)
-        render_freshness_banner("ERCOT GIS Queue", last_processed)
         view_label = (
             "full public Large+Small Gen detail sheets"
             if show_full_queue
