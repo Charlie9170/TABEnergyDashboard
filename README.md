@@ -39,8 +39,12 @@ Data is automatically updated every 6 hours via GitHub Actions.
 
 ### Prerequisites
 
-- Python 3.11 or higher
+- Python 3.11–3.13 for local development
 - EIA API key (free from [EIA](https://www.eia.gov/opendata/))
+
+GitHub Actions pins Python 3.11; Streamlit Cloud runs Python 3.14 (set in the Cloud
+app's Advanced settings, not in this repo). That is why `pandas`, `pyarrow`, and
+`numpy` are pinned to releases that publish cp314 wheels.
 
 ### Local Setup
 
@@ -50,16 +54,23 @@ Data is automatically updated every 6 hours via GitHub Actions.
    cd TABEnergyDashboard
    ```
 
-2. **Create a virtual environment**
+2. **Create a virtual environment** named `.venv`
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    ```
 
-3. **Install dependencies**
+3. **Install dependencies into that environment**
    ```bash
    pip install -r requirements.txt
    ```
+
+   Always run this install, and re-run it after pulling. Skipping it leaves
+   `pyarrow` at whatever version the environment already had, and reading a
+   CI-written parquet with an older `pyarrow` than the writer fails with
+   `Repetition level histogram size mismatch`. If the environment was created by
+   `uv venv` it may contain no `pip` at all — run `python -m ensurepip --upgrade`
+   first, then install.
 
 4. **Set up API key** ⚠️ **CRITICAL SECURITY STEP**
    
@@ -85,9 +96,9 @@ Data is automatically updated every 6 hours via GitHub Actions.
 5. **Run ETL scripts to generate data**
    ```bash
    python etl/eia_fuelmix_etl.py
-   python etl/price_map_etl.py
+   python etl/ercot_lmp_etl.py
    python etl/eia_plants_etl.py
-   python etl/interconnection_etl.py
+   python etl/ercot_gis_queue_etl.py
    ```
 
 6. **Start the dashboard** (from repo root)
@@ -109,23 +120,29 @@ TABEnergyDashboard/
 │   │   ├── fuelmix_tab.py        # ERCOT fuel mix view
 │   │   ├── price_map_tab.py      # Price map view
 │   │   ├── generation_tab.py     # Generation facilities view
-│   │   └── queue_tab.py          # Interconnection queue view
+│   │   ├── queue_tab.py          # Interconnection queue view
+│   │   ├── minerals_tab.py       # Critical minerals view
+│   │   └── about_tab.py          # Data sources / about view
 │   └── utils/                    # Shared utilities
 │       ├── colors.py             # Fuel color palette
 │       ├── schema.py             # Data schemas
 │       └── loaders.py            # Data loading functions
 ├── etl/                          # Data extraction scripts
-│   ├── eia_fuelmix_etl.py        # EIA fuel mix data (working)
-│   ├── price_map_etl.py          # Demo price data
-│   ├── eia_plants_etl.py         # Plants stub (TODO)
-│   └── interconnection_etl.py    # Queue stub (TODO)
-├── data/                         # Data files (gitignored)
+│   ├── eia_fuelmix_etl.py        # EIA fuel mix data (production)
+│   ├── ercot_lmp_etl.py          # ERCOT real-time prices (production)
+│   ├── eia_plants_etl.py         # EIA generation facilities (production)
+│   ├── ercot_gis_queue_etl.py    # ERCOT GIS interconnection queue (production)
+│   └── mineral_etl.py            # Critical minerals (manual, not in CI)
+├── data/                         # Data files (committed — refreshed by CI)
 │   ├── fuelmix.parquet
 │   ├── price_map.parquet
 │   ├── generation.parquet
-│   └── queue.parquet
+│   ├── queue.parquet
+│   └── minerals_deposits.parquet
 ├── scripts/                      # Utility scripts
-│   └── validate_data.py          # Data validation
+│   ├── validate_data.py                  # Data validation
+│   ├── validate_generation_parquet.py    # CI gate for generation ETL
+│   └── validate_gis_queue_parquet.py     # CI gate for queue ETL
 ├── .streamlit/                   # Streamlit configuration
 │   └── config.toml               # Theme and settings
 ├── .github/workflows/            # GitHub Actions
@@ -137,22 +154,42 @@ TABEnergyDashboard/
 
 ## Data Sources
 
-### Current (Implemented)
+Every dashboard view is backed by a live public source. Four ETLs run in CI on the
+6-hour schedule; minerals is the one manually curated dataset.
 
-- **EIA Fuel Mix**: U.S. Energy Information Administration API v2
-  - Endpoint: `electricity/rto/fuel-type-data`
-  - Frequency: Hourly
-  - Coverage: Last 7 days
+- **ERCOT Fuel Mix** — `etl/eia_fuelmix_etl.py` → `data/fuelmix.parquet`
+  - EIA v2 API, endpoint `electricity/rto/fuel-type-data`, respondent `ERCO` (ERCOT)
+  - Hourly, trailing 7 days; requires `EIA_API_KEY`
 
-- **Price Map**: Demo data (stub for ERCOT real-time prices)
+- **Price Map** — `etl/ercot_lmp_etl.py` → `data/price_map.parquet`
+  - Scrapes ERCOT's public Real-Time Settlement Point Prices page:
+    https://www.ercot.com/content/cdr/html/real_time_spp
+  - 15 settlement points (9 hubs/load zones + 6 strategic nodes); no API key needed
+  - ERCOT updates roughly every 5 minutes; this dashboard samples it every 6 hours
 
-### Planned (Stubs)
+- **Generation Map** — `etl/eia_plants_etl.py` → `data/generation.parquet`
+  - EIA v2 API, endpoints `electricity/operating-generator-capacity` (nameplate
+    capacity) and `electricity/facility-fuel` (measured generation), Texas only
+  - Plant coordinates come from EIA-860, cached in `data/eia860_plant_locations.parquet`
+  - Reported output is a measured three-month average ending on the last complete
+    published month. Plants with no measured data are excluded rather than estimated;
+    requires `EIA_API_KEY`
 
-- **Generation Map**: EIA Power Plants dataset via ArcGIS FeatureServer
-  - URL: https://atlas.eia.gov/datasets/eia::power-plants/
+- **Interconnection Queue** — `etl/ercot_gis_queue_etl.py` → `data/queue.parquet`
+  - ERCOT's monthly Generator Interconnection Status (GIS) Report. The ETL resolves
+    the newest `GIS_Report_*` document from ERCOT's public report listing rather than
+    a hardcoded URL, then parses the "Project Details - Large Gen" and "Project
+    Details - Small Gen" sheets
+  - Also writes `data/queue_gis_metadata.json` with the report's own published totals
+    and provenance, used as an independent cross-check by the CI validator
+  - The GIS report publishes no coordinates, so map positions are county centroids
+    with small jitter — accurate to county, not to site; no API key needed
 
-- **Interconnection Queue**: ERCOT public reports or interconnection.fyi
-  - URL: https://www.interconnection.fyi/?market=ERCOT
+- **Critical Minerals** — `etl/mineral_etl.py` → `data/minerals_deposits.parquet`
+  - Manually curated from `data/manual_mineral_deposits.csv`, compiled from public
+    geological surveys and industry disclosures, with formation overlays in
+    `data/mineral_polygons_v2.json`
+  - **Not** run by CI; refreshed only when someone runs the script locally
 
 ## GitHub Actions Automation
 
@@ -223,7 +260,9 @@ df = load_parquet("fuelmix.parquet", "fuelmix")
 Run the ETL scripts to generate data:
 ```bash
 python etl/eia_fuelmix_etl.py
-python etl/price_map_etl.py
+python etl/ercot_lmp_etl.py
+python etl/eia_plants_etl.py
+python etl/ercot_gis_queue_etl.py
 ```
 
 ### EIA API errors
@@ -240,14 +279,15 @@ python etl/price_map_etl.py
 
 ## Contributing
 
-Contributions welcome! Areas for improvement:
+Contributions welcome! Live ERCOT prices, EIA plants, the interconnection queue, and
+CSV export all shipped — see **Data Sources** above for what each view actually reads.
 
-- [ ] Implement real ERCOT price data fetch
-- [ ] Implement EIA plants data from FeatureServer
-- [ ] Implement interconnection queue data
-- [ ] Add historical data trends
-- [ ] Add export functionality
-- [ ] Add custom date range selection
+Open ideas:
+
+- [ ] Historical trends (each parquet is a current snapshot; nothing is retained over time)
+- [ ] Custom date range selection (windows are currently fixed per ETL)
+- [ ] Broaden `etl/texas_counties.py` coverage so queue projects in unlisted counties
+      stop falling back to the state centroid
 
 ## Security
 

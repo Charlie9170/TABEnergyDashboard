@@ -2,7 +2,8 @@
 
 > **Evidence key:** *(verified: path)* = confirmed from file; *(inferred)* = logical deduction; *(assumption)* = unverified.
 >
-> This document captures active development signals, unfinished work, backup artifacts, and technical debt **as of 2026-08-18**. Update this file when any of these items are resolved.
+> Active development signals, unfinished work, and technical debt **as of 2026-08-19**.
+> Update this file when any item is resolved.
 
 ---
 
@@ -17,8 +18,8 @@
 | **5** | Fix facility-fuel generation join | **DONE** — measured data in committed parquet |
 | **6** | Honest generation labeling | **DONE** — `generation_is_estimated`, no 70% fallback in tab/ETL |
 | **7** | Queue freshness labeling | **DONE** |
-| **8** | Dynamic CDR queue source | **DONE** — replaced with monthly ERCOT GIS Report (`etl/ercot_gis_queue_etl.py`), branch `task-8-gis`, not yet merged/committed as of this entry |
-| **9** | Fix `refresh_all_data.sh` | **DONE** — calls `ercot_lmp_etl.py`, not demo `price_map_etl.py` |
+| **8** | Dynamic CDR queue source | **DONE** — replaced with the monthly ERCOT GIS Report (`etl/ercot_gis_queue_etl.py`), merged to `main` in `178fa47` |
+| **9** | Fix `refresh_all_data.sh` | **DONE** — calls the production ETLs |
 | **10** | ETL failure visibility | **DONE** — plants ETL no longer `continue-on-error`; validation step added |
 | **11** | Fix workflow commit/push git strategy | **DONE** — concurrency, pull-before-ETL, push retry (`2bac401`) |
 | **12** | Reconcile `docs/ai/` | **DONE** — `CURRENT_STATE.md`, `CHANGELOG_FOR_AI.md` (2026-08-18) |
@@ -40,12 +41,11 @@
 
 | Signal | Evidence | Source |
 |--------|----------|--------|
-| `minerals_deposits.parquet` has only 1 row | Sparse data | *(verified: parquet inspection)* |
+| `minerals_deposits.parquet` is sparse (12 rows measured 2026-08-18) | Only dataset with no automated feed | *(verified: parquet inspection, 2026-08-18)* |
 | `data/ercot_cdr_may2025.xlsx` is a May 2025 snapshot | Retired — no longer read by the active pipeline; superseded by `etl/ercot_gis_queue_etl.py` (Task 8). File and its ETL (`etl/ercot_queue_etl.py`) left in place, archived. | *(verified: `etl/ercot_gis_queue_etl.py`, `etl/ercot_queue_etl.py` module docstring)* |
-| Disabled legacy workflow `.github/workflows/etl-old.yml` | Schedule removed, workflow_dispatch only | *(verified: `.github/workflows/etl-old.yml`)* |
 | Committed `generation.parquet` predates P0 ETL fixes | Resolved — see audit table above | *(verified: CI run 32095361711)* |
 
-*(Backup files in `app/tabs/` and `.github/workflows/etl.yml.backup` were removed in `a8af0b1`.)*
+*(All backup files and the legacy `etl-old.yml` workflow have been removed; `.github/workflows/` now contains only `etl.yml`.)*
 
 ---
 
@@ -56,10 +56,9 @@
 | `etl/eia_fuelmix_etl.py` | **Production** | Paginated EIA API fetch; falls back to demo data without API key |
 | `etl/ercot_lmp_etl.py` | **Production** | Scrapes ERCOT public HTML |
 | `etl/eia_plants_etl.py` | **Production** | EIA-860 coords + EIA-923 facility-fuel measured generation only; rolling date windows; fails without API key/data |
-| `etl/ercot_queue_etl.py` | **Production** | ERCOT CDR Excel parsing |
-| `etl/mineral_etl.py` | **Production (sparse)** | Manual curation; polygon generation requires external shapefile |
-| `etl/price_map_etl.py` | **Demo stub** | Hardcoded nodes; not called from CI workflow |
-| `etl/interconnection_etl.py` | **Empty stub** | Only creates empty queue schema; not called from CI |
+| `etl/ercot_gis_queue_etl.py` | **Production** | ERCOT GIS Report (monthly); discovers newest report via ERCOT's JSON listing endpoint |
+| `etl/ercot_queue_etl.py` | **Deprecated (archived)** | Old CDR pipeline, not run. Still imported by `ercot_gis_queue_etl.py` for its geocoding/atomic-write helpers — do not delete without extracting those first |
+| `etl/mineral_etl.py` | **Manual only** | Not in CI; manual curation; polygon generation requires an external shapefile |
 | `etl/demo_fuelmix_data.py` | **Fallback** | Synthetic data used when `EIA_API_KEY` is absent |
 
 *(verified: `.github/workflows/etl.yml`, ETL file contents)*
@@ -68,55 +67,37 @@
 
 ## TODO / FIXME items (verified from code)
 
-### `app/tabs/minerals_tab.py` (line 545, 572)
-```python
-# TODO section for manual updates
-# TODO: Implement GeoJSON loading in `etl/mineral_etl.py`
-#       when shapefile sources become available.
-```
-*(verified: `app/tabs/minerals_tab.py`)*
+The only TODOs left in the codebase are three in `etl/mineral_etl.py` (lines 139,
+395, 404), all describing the same blocked work: loading mineral polygons from
+GeoJSON once a source is available. The minerals pipeline is manual and has no
+automated feed. *(verified: `git grep TODO -- 'app/*' 'etl/*' 'scripts/*'`, 2026-08-19)*
 
-### `README.md` (Contributing section)
-Acknowledged unimplemented items:
-- Implement real ERCOT price data fetch *(now implemented in `ercot_lmp_etl.py` — README may be outdated)*
-- Implement EIA plants data from FeatureServer
-- Implement interconnection queue data *(now implemented in `ercot_queue_etl.py`)*
-- Add historical data trends
-- Add export functionality *(now implemented in `app/utils/export.py`)*
-- Add custom date range selection
-
-*(verified: `README.md`)*
+`README.md`'s Contributing checklist still lists several items that are in fact
+implemented (ERCOT price fetch → `ercot_lmp_etl.py`; interconnection queue →
+`ercot_gis_queue_etl.py`; export → `app/utils/export.py`). That list needs pruning.
 
 ---
 
 ## Backup and deprecated artifacts
 
-### Files that should not be in production but are committed
-
-| File | Type | Should be resolved by |
-|------|------|----------------------|
-| `app/main.py.backup` | Backup | Review and delete if safe |
-| `app/tabs/minerals_tab.py.auto_backup` | Auto-backup | Review and delete if safe |
-| `app/tabs/minerals_tab.py.backup2` | Backup | Review and delete if safe |
-| `app/tabs/minerals_tab_OLD_BACKUP.py` | Old backup | Review and delete if safe |
-| `etl/ercot_lmp_etl.py.backup` | Backup | Review and delete if safe |
-| `.github/workflows/etl-old.yml` | Disabled legacy workflow | Archive or delete |
-| `.github/workflows/etl.yml.backup` | Backup | Delete |
-| `etl/interconnection_etl.py` | Superseded stub | Remove or replace |
-| `etl/price_map_etl.py` | Demo stub (production replaced by `ercot_lmp_etl.py`) | Remove or clarify |
+**None remain.** Every `.backup` / `.auto_backup` / `_OLD_BACKUP` file and the legacy
+`etl-old.yml` workflow were removed in `a8af0b1` and `3377292`; the two superseded ETL
+stubs (`price_map_etl.py`, `interconnection_etl.py`) were removed in the Aug 2026
+cleanup. Verify with `git ls-files | grep -iE 'backup|old'` before re-adding this
+section. *(verified: `git ls-files`, 2026-08-19)*
 
 ---
 
 ## README accuracy issues (verified)
 
-The `README.md` project structure diagram lists several items that are outdated:
-- Shows `price_map_etl.py` as "Demo price data" — it is a demo stub but **not** called by CI
-- Shows `eia_plants_etl.py` as "Plants stub (TODO)" — it is now implemented as production
-- Shows `interconnection_etl.py` as "Queue stub (TODO)" — superseded by `ercot_queue_etl.py`
-- Does not mention `minerals_tab.py` or the minerals pipeline
-- Color palette table shows old hex codes (e.g., `#fb923c` for Gas) that differ from current `app/utils/colors.py` values (current: `#C8102E`)
+The setup steps and project-structure block were corrected in the Aug 2026 cleanup and
+now match the production ETLs. Remaining known gaps:
 
-*(verified: `README.md`, `app/utils/colors.py`)*
+- The color palette table still shows old hex codes (`#fb923c` for Gas at `README.md:191`)
+  that differ from `app/utils/colors.py` (current: `#C8102E`)
+- The Contributing checklist lists several already-implemented items (see TODO section above)
+
+*(verified: `README.md`, `app/utils/colors.py`, 2026-08-19)*
 
 ---
 
@@ -124,7 +105,7 @@ The `README.md` project structure diagram lists several items that are outdated:
 
 | Risk | Details |
 |------|---------|
-| `minerals_deposits.parquet` has 1 row | Effectively empty; minerals tab will render minimal content |
+| `minerals_deposits.parquet` is sparse | Manually curated, no automated feed; minerals tab renders limited content |
 | ERCOT HTML scraping | ERCOT may change their HTML format, breaking `ercot_lmp_etl.py` |
 | LinkedIn CDN logo URL | Logo loaded from LinkedIn CDN at runtime; may break if URL changes |
 
@@ -137,22 +118,26 @@ The `README.md` project structure diagram lists several items that are outdated:
 | Item | File | Severity |
 |------|------|---------|
 | Hardcoded LinkedIn CDN logo URL in `app/main.py` | `app/main.py` | Medium — external URL may break |
-| Duplicate/redundant ETL scripts (`price_map_etl.py` vs `ercot_lmp_etl.py`) | `etl/` | Low |
-| README project structure is significantly outdated | `README.md` | Low |
-| Multiple `.backup` files committed to repository | Various | Low |
-| `minerals_deposits.parquet` has only 1 row | `data/` | Medium — minerals tab shows almost nothing |
+| `minerals_deposits.parquet` is sparse and manually curated | `data/` | Medium — minerals tab shows limited content |
 | `app/utils/schema.py` canonical schema for `queue` uses `fuel`/`proposed_mw` but actual parquet uses `fuel_type`/`capacity_mw` | `app/utils/schema.py` | Medium — column aliases bridge this but creates hidden coupling (still applies to the GIS pipeline's output) |
-| `etl/interconnection_etl.py` stub not removed | `etl/` | Low |
 | `etl/texas_counties.py` `TEXAS_COUNTY_CENTROIDS` is missing at least one real county ("Sterling") | `etl/texas_counties.py` | Low — falls back to the Texas centroid gracefully (no crash), but those projects render at the state centroid instead of their actual county; discovered running `ercot_gis_queue_etl.py` against the July 2026 GIS Report |
 
 ---
 
-## Confirmed working (as of last ETL run)
+## Confirmed working
 
-- `data/fuelmix.parquet` — 1,384 rows, 4 columns *(verified: parquet inspection)*
-- `data/generation.parquet` — 415 rows, measured EIA-923 data *(verified: CI run 32095361711)*
-- `data/price_map.parquet` — 15 rows (one per settlement point), 11 columns *(verified: parquet inspection)*
-- `data/queue.parquet` — 1,827 rows (1,797 Large Gen + 30 Small Gen), 18 columns, ERCOT GIS Report (July 2026) *(verified: local run of `etl/ercot_gis_queue_etl.py`, 2026-08-18, branch `task-8-gis`, not yet committed)*
+Row counts below were **measured on 2026-08-18** and change on every ETL refresh —
+treat them as a point-in-time sample, not a specification. Read the Parquet for
+current values.
+
+| Dataset | Rows (2026-08-18) | Contents |
+|---|---|---|
+| `fuelmix.parquet` | 1,192 | Hourly ERCOT generation by fuel type |
+| `price_map.parquet` | 15 | One row per settlement point (the ERCOT source maximum) |
+| `generation.parquet` | 415 | Texas plants with measured EIA-923 generation |
+| `eia860_plant_locations.parquet` | 1,367 | EIA-860 plant coordinate reference table |
+| `queue.parquet` | 1,827 | ERCOT GIS queue, Large + Small Gen (July 2026 report) |
+| `minerals_deposits.parquet` | 12 | Manually curated mineral deposits |
 
 ---
 

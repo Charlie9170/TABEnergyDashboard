@@ -37,8 +37,9 @@ The dashboard provides energy market intelligence to help TAB members and policy
 3. **Generation Map** — Texas power plant locations, capacities, and fuel types from EIA API  
    *(verified: `etl/eia_plants_etl.py`, `app/tabs/generation_tab.py`)*
 
-4. **Interconnection Queue** — Planned generation projects from ERCOT CDR report  
-   *(verified: `etl/ercot_queue_etl.py`, data/queue.parquet schema)*
+4. **Interconnection Queue** — Active interconnection projects from the monthly ERCOT
+   Generator Interconnection Status (GIS) report  
+   *(verified: `etl/ercot_gis_queue_etl.py`, `data/queue.parquet` schema)*
 
 5. **Minerals & Critical Minerals** — REE and critical mineral deposits in Texas (manually curated)  
    *(verified: `etl/mineral_etl.py`, `app/tabs/minerals_tab.py`)*
@@ -61,9 +62,14 @@ The dashboard provides energy market intelligence to help TAB members and policy
 
 ## Policy posture (verified from code)
 
-The dashboard embeds advocacy messages aligned with TAB energy policy positions on each tab (natural gas reliability, competitive markets, all-of-the-above strategy, infrastructure investment, critical minerals supply chain). *(verified: `app/utils/advocacy.py`)*
+Each data tab renders a short "TAB Policy" statement aligned with TAB's energy policy
+positions (reliable diverse grid, competitive markets, streamlined permitting,
+interconnection efficiency, critical minerals supply chain). The copy is inline in each
+tab module. *(verified: `app/tabs/*.py` — search "TAB Policy")*
 
-These messages use HTML escaping to prevent XSS. *(verified: `app/utils/advocacy.py` — `html.escape()` usage)*
+A separate `app/utils/advocacy.py` module once held a longer, never-rendered variant of
+this copy; it was removed in the Aug 2026 cleanup so only the text users actually see
+exists in the tree. Treat the inline copy as authoritative — it appears under TAB's name.
 
 ---
 
@@ -72,14 +78,14 @@ These messages use HTML escaping to prevent XSS. *(verified: `app/utils/advocacy
 | Layer | Technology | Version / Note |
 |-------|-----------|----------------|
 | Frontend | Streamlit | `==1.45.1` *(verified: `requirements.txt`)* |
-| Data processing | pandas | `==2.2.3` *(verified: `requirements.txt`)* |
-| Columnar storage | pyarrow | `==19.0.0` *(verified: `requirements.txt`)* |
-| Numeric | numpy | `==2.1.3` *(verified: `requirements.txt`)* |
+| Data processing | pandas | pinned *(read `requirements.txt` for the value)* |
+| Columnar storage | pyarrow | pinned *(read `requirements.txt` for the value)* |
+| Numeric | numpy | pinned *(read `requirements.txt` for the value)* |
 | HTTP | requests | `>=2.31.0` *(verified: `requirements.txt`)* |
 | HTML parsing | beautifulsoup4, lxml | *(verified: `requirements.txt`)* |
 | Charts | plotly | `>=5.17.0` *(verified: `requirements.txt`)* |
 | Maps | pydeck | `>=0.8.0` *(verified: `requirements.txt`)* |
-| Geospatial | geopandas, shapely, fiona, pyshp | *(verified: `requirements.txt`)* |
+| Geospatial | pyshp *(geopandas/shapely/fiona removed — no wheel on the deploy target)* | *(verified: `requirements.txt`)* |
 | Excel | openpyxl | *(verified: `requirements.txt`)* |
 | CI/CD | GitHub Actions | *(verified: `.github/workflows/etl.yml`)* |
 | Deployment | Streamlit Cloud | *(inferred from `.streamlit/config.toml`, `.streamlit_trigger` file)* |
@@ -91,7 +97,6 @@ These messages use HTML escaping to prevent XSS. *(verified: `app/utils/advocacy
 
 ## Repository age / history signals
 
-- Docs reference "November 2025" as an active period: `docs/RECOVERY_NOV15_2025.md`, `docs/RELEASE_v1.1_NOV16.md`, `docs/WORKING_STATE_NOV16.md`
 - ETL scripts have author dates of 2025-11-10 *(verified: `etl/ercot_lmp_etl.py`)*
-- README states "Last Updated: 2025-10-20" *(verified: `README.md`)*
-- The project appears to have been in active development through at least late November 2025. *(inferred from doc dates)*
+- The ERCOT GIS queue pipeline was added Aug 2026 *(verified: `etl/ercot_gis_queue_etl.py`, `.github/workflows/etl.yml`)*
+- A set of dated November 2025 status/completion documents was removed in the Aug 2026 documentation cleanup; git history retains them if that period ever needs reconstructing.

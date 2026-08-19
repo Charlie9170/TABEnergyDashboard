@@ -78,7 +78,7 @@ External Source (API / HTML / Excel)
 4. Calculates `avg_price` per zone; assembles DataFrame with `node_id`, `lat`, `lon`, `price_cperkwh`, `region`, `tier`, `last_updated`, `zone_key`, `avg_price`, `interval_end`, `oper_day`
 5. Writes to `data/price_map.parquet`
 
-> **Note:** `etl/price_map_etl.py` is a **demo stub** that writes hardcoded data. The CI workflow runs `ercot_lmp_etl.py` (production), not `price_map_etl.py`. *(verified: `.github/workflows/etl.yml`)*
+> **Note:** A demo stub (`etl/price_map_etl.py`) previously wrote hardcoded values to this same path and was deleted in the Aug 2026 cleanup. `ercot_lmp_etl.py` is the only writer of `data/price_map.parquet`. *(verified: `.github/workflows/etl.yml`)*
 
 ---
 
@@ -151,7 +151,6 @@ Streamlit Cloud watches the main branch. When `.streamlit_trigger` changes, it t
 | Cache | Location | TTL | Scope |
 |-------|----------|-----|-------|
 | `load_parquet()` | `app/utils/loaders.py` | 3600 seconds (1 hour) | Per parquet file + dataset |
-| `get_file_modification_time()` | `app/utils/loaders.py` | 60 seconds | Per filename |
 
 *(verified: `app/utils/loaders.py`)*
 

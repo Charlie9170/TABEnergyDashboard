@@ -8,6 +8,44 @@
 
 ---
 
+## 2026-08-19 — Repository cleanup: docs, dead code, public error copy
+
+**Type:** Documentation + code hygiene
+
+### Summary
+Removed development-history artifacts and corrected documentation that contradicted
+the code. Deleted 25 completion-report documents from `docs/` and the repo root,
+`docs/QUICK_START.md` (README is now the single setup path), and
+`docs/ai/PROMPT_TEMPLATES.md`.
+
+Deleted two ETL stubs that the README told maintainers to run:
+`etl/price_map_etl.py` (wrote demo values over live prices) and
+`etl/interconnection_etl.py` (wrote a zero-row frame over `data/queue.parquet`).
+
+Added module-level logging to `app/` (there was none) and replaced user-facing
+developer instructions — ETL commands, stack traces, schema dumps — with neutral
+copy. Diagnostic detail now goes to `logger.exception` instead of the screen.
+
+Deleted `app/utils/advocacy.py`: its `render_advocacy_message()` was imported by four
+tabs and called by none. The "TAB Policy" copy users actually see is inline in each
+tab and was left untouched.
+
+`CLAUDE.md` rewritten from scratch (107 → 50 lines), every claim re-verified.
+
+### Docs to re-read
+`CLAUDE.md`, `AGENTS.md`, `ARCHITECTURE.md`, `CURRENT_STATE.md`, `OPERATIONS.md`,
+`DECISIONS.md` (DR-002, DR-003, DR-009, new DR-011), `OPEN_QUESTIONS.md`
+(OQ-002/003/004/005/010 resolved).
+
+### Notes for future agents
+- `etl/ercot_queue_etl.py` is deprecated but **must not be deleted** —
+  `ercot_gis_queue_etl.py` imports its geocoding and atomic-write helpers.
+- Row counts in docs are point-in-time samples. Read the Parquet.
+- A pre-existing note claiming "DO NOT migrate Price Map to Plotly" was stale — the
+  migration shipped. See DR-011 before acting on any old guidance about that map.
+
+---
+
 ## 2026-07-28 — Initial AI documentation system created
 
 **Type:** Documentation  

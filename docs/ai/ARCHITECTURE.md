@@ -41,7 +41,6 @@ TABEnergyDashboard/
 │   │   └── queue_tab.py
 │   └── utils/                  # Shared utilities
 │       ├── __init__.py
-│       ├── advocacy.py         # TAB policy message rendering
 │       ├── colors.py           # Fuel type → color mappings
 │       ├── data_sources.py     # Data source registry and footer helpers
 │       ├── export.py           # CSV download button utility
@@ -62,12 +61,9 @@ TABEnergyDashboard/
 │   ├── eia_fuelmix_etl.py      # EIA fuel mix (production)
 │   ├── eia_plants_etl.py       # EIA generation facilities (production)
 │   ├── ercot_lmp_etl.py        # ERCOT real-time prices (production)
-│   ├── ercot_lmp_etl.py.backup # ← backup artifact
-│   ├── ercot_gis_queue_etl.py  # ERCOT GIS Report queue (production, Task 8)
+│   ├── ercot_gis_queue_etl.py  # ERCOT GIS Report queue (production)
 │   ├── ercot_queue_etl.py      # ← DEPRECATED (ERCOT CDR queue); archived, imported for its geocoding/write helpers
-│   ├── interconnection_etl.py  # ← stub (empty schema only)
-│   ├── mineral_etl.py          # Minerals (production)
-│   ├── price_map_etl.py        # ← demo data stub
+│   ├── mineral_etl.py          # Minerals (manual only; not in CI)
 │   └── texas_counties.py       # County → coordinate lookup for queue ETL
 ├── scripts/
 │   ├── auto_commit.sh
@@ -77,11 +73,13 @@ TABEnergyDashboard/
 │   └── validate_gis_queue_parquet.py     # CI gate, run after GIS Queue ETL (Task 8)
 ├── docs/
 │   ├── ai/                     # ← THIS directory
-│   └── *.md                    # Legacy implementation notes
+│   ├── MINERALS_DATA_SOURCES.md
+│   └── MINERALS_QUICK_START.md
+├── tests/
+│   ├── test_eia_plants_etl.py
+│   └── test_queue_view.py
 ├── .github/workflows/
-│   ├── etl.yml                 # Active ETL workflow (runs every 6 hours)
-│   ├── etl-old.yml             # Disabled legacy workflow (workflow_dispatch only)
-│   └── etl.yml.backup          # ← backup artifact
+│   └── etl.yml                 # The only workflow file
 ├── .streamlit/
 │   ├── config.toml             # Theme (colors, server settings)
 │   ├── custom.css              # Extended CSS design system
@@ -89,14 +87,11 @@ TABEnergyDashboard/
 ├── .env.template
 ├── .gitignore
 ├── .streamlit_trigger          # Timestamp file; changes force Streamlit Cloud redeploy
-├── diagnose_etl.py             # Developer diagnostic script
 ├── refresh_all_data.sh         # Developer convenience script
-├── requirements.txt
-├── test_eia_plants_etl.py
-├── test_etl_setup.py
-└── test_project.sh
+├── requirements.txt             # Production deps (installed on Streamlit Cloud)
+└── requirements-dev.txt         # + pytest, local-only
 ```
-*(verified: directory traversal)*
+*(verified: directory traversal, 2026-08-19)*
 
 ---
 
@@ -182,12 +177,11 @@ See [`DATA_SOURCES.md`](DATA_SOURCES.md) for the full schema table for each data
 
 | Module | Key exports | Purpose |
 |--------|-------------|---------|
-| `app/utils/loaders.py` | `load_parquet()`, `get_last_updated()`, `get_file_modification_time()` | Cached data loading |
+| `app/utils/loaders.py` | `load_parquet()`, `get_last_updated()`, `get_data_path()` | Cached data loading |
 | `app/utils/schema.py` | `SCHEMAS`, `COLUMN_ALIASES`, `normalize_columns()`, `coerce_types()`, `validate()` | Schema contracts |
 | `app/utils/colors.py` | `FUEL_COLORS_HEX`, `get_fuel_color_hex()`, `get_fuel_color_rgb()`, `RENEWABLE_FUELS`, `is_renewable()` | Visual consistency |
-| `app/utils/data_sources.py` | `DATA_SOURCES`, `get_data_status_badge()`, `render_data_source_footer()` | Source attribution |
+| `app/utils/data_sources.py` | `DATA_SOURCES`, `render_data_source_footer()`, `render_freshness_banner()` | Source attribution |
 | `app/utils/export.py` | `create_download_button()` | CSV export for legislators |
-| `app/utils/advocacy.py` | `render_advocacy_message()` | TAB policy messages per tab |
 | `app/utils/table_styling.py` | `PROFESSIONAL_TABLE_STYLE`, `apply_professional_table_style()` | Styled DataFrames |
 
 ---
@@ -198,14 +192,12 @@ See [`DATA_SOURCES.md`](DATA_SOURCES.md) for the full schema table for each data
 |--------|--------|------------------|--------|
 | `etl/eia_fuelmix_etl.py` | Production | `data/fuelmix.parquet` | EIA v2 API |
 | `etl/ercot_lmp_etl.py` | Production | `data/price_map.parquet` | ERCOT public HTML |
-| `etl/eia_plants_etl.py` | Production | `data/generation.parquet` | EIA v2 API |
+| `etl/eia_plants_etl.py` | Production | `data/generation.parquet`, `data/eia860_plant_locations.parquet` | EIA v2 API |
 | `etl/ercot_gis_queue_etl.py` | Production | `data/queue.parquet`, `data/queue_gis_metadata.json` | ERCOT GIS Report (monthly) |
 | `etl/ercot_queue_etl.py` | **Deprecated** (archived) | — not run | ERCOT CDR Excel — retired, see module docstring |
-| `etl/mineral_etl.py` | Production | `data/minerals_deposits.parquet` | Manual curation |
-| `etl/price_map_etl.py` | Demo stub | `data/price_map.parquet` | Hardcoded demo |
-| `etl/interconnection_etl.py` | Empty stub | `data/queue.parquet` (empty) | N/A |
+| `etl/mineral_etl.py` | Manual only (not in CI) | `data/minerals_deposits.parquet` | Manual curation |
 | `etl/demo_fuelmix_data.py` | Fallback | `data/fuelmix.parquet` | Synthetic data |
 | `etl/convert_shapefile.py` | Utility | N/A | USGS shapefile conversion |
 | `etl/texas_counties.py` | Utility | N/A | County → coordinate lookup |
 
-> **Note:** `ercot_lmp_etl.py` and `price_map_etl.py` both write to `data/price_map.parquet`. The CI workflow runs `ercot_lmp_etl.py` (production), not `price_map_etl.py` (demo). *(verified: `.github/workflows/etl.yml`)*
+> **Note:** `ercot_queue_etl.py` is deprecated but **must not be deleted** — `ercot_gis_queue_etl.py` imports its geocoding and atomic-write helpers. Extract those first. *(verified: `etl/ercot_gis_queue_etl.py`)*

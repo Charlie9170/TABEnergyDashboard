@@ -12,19 +12,22 @@ Before making any change, read the `docs/ai/` documentation in this order:
 2. [`docs/ai/PROJECT_CONTEXT.md`](docs/ai/PROJECT_CONTEXT.md) — what this project is and who uses it
 3. [`docs/ai/ARCHITECTURE.md`](docs/ai/ARCHITECTURE.md) — entry point, module structure, Streamlit patterns
 4. [`docs/ai/DATA_FLOW.md`](docs/ai/DATA_FLOW.md) — verified ETL → parquet → rendering pipeline
-5. [`docs/ai/CURRENT_STATE.md`](docs/ai/CURRENT_STATE.md) — active TODOs, backup files, known issues
+5. [`docs/ai/CURRENT_STATE.md`](docs/ai/CURRENT_STATE.md) — open work and known issues
 6. [`docs/ai/OPEN_QUESTIONS.md`](docs/ai/OPEN_QUESTIONS.md) — unresolved ambiguities
 
 ---
 
 ## Non-negotiable rules
 
-1. **Do not modify application behavior** unless explicitly asked to do so. This is a production dashboard.
-2. **Do not commit secrets or API keys** — the `.streamlit/secrets.toml` file must stay in `.gitignore`.
-3. **Do not call `st.stop()`** — use graceful degradation (see `app/utils/loaders.py`).
-4. **Do not change pinned dependency versions** (`streamlit`, `pandas`, `pyarrow`, `numpy`) without understanding parquet schema compatibility implications.
-5. **Minimize change scope** — touch only the files required by the task.
-6. **Update `docs/ai/` files** when making structural changes (new tab, schema change, new ETL).
+**The rules live in [`CLAUDE.md`](CLAUDE.md) — read its "Rules" section and follow it.**
+They are kept in one file on purpose: they previously existed in three places and
+drifted out of sync, leaving two copies asserting things that were no longer true.
+
+Two additions that apply to any agent:
+
+1. **Do not modify application behavior** unless explicitly asked. This is a
+   production dashboard read by legislators and TAB member companies.
+2. **Minimize change scope** — touch only the files the task requires.
 
 ---
 
@@ -48,17 +51,17 @@ Before making any change, read the `docs/ai/` documentation in this order:
 
 ## Known issues and warnings
 
-- `data/minerals_deposits.parquet` has only 1 row — the minerals tab is nearly empty.
-- `.github/workflows/etl.yml.backup` may contain a leaked API key — see `docs/ai/OPEN_QUESTIONS.md` OQ-001.
-- The `README.md` project structure is outdated — trust `docs/ai/ARCHITECTURE.md` instead.
-- Multiple `.backup` files exist in `app/tabs/` and `etl/` — they are not active code.
+- `data/minerals_deposits.parquet` is sparse — the minerals tab renders little content.
+  It is the only dataset with no automated feed; `etl/mineral_etl.py` is run by hand
+  and is not part of CI.
+- `etl/texas_counties.py` does not cover every Texas county. Unknown counties fall back
+  to the state centroid with a logged warning, so those projects map to the middle of
+  Texas rather than their real location.
+- Coordinates in `queue.parquet` are county centroids plus deterministic jitter, not
+  surveyed sites — the ERCOT GIS report publishes no lat/lon.
 
 ---
 
 ## Full workflow guardrails
 
 See [`docs/ai/AI_WORKFLOW.md`](docs/ai/AI_WORKFLOW.md) for complete behavioral guidelines.
-
-## Reusable prompts
-
-See [`docs/ai/PROMPT_TEMPLATES.md`](docs/ai/PROMPT_TEMPLATES.md) for prompts covering orientation, bug diagnosis, implementation planning, and more.

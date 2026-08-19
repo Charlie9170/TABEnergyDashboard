@@ -146,4 +146,6 @@ Before running ETL, verify:
 
 ---
 
-**For Questions:** See full documentation in `docs/MINERALS_TAB_COMPLETE.md`
+**For Questions:** See `docs/MINERALS_DATA_SOURCES.md` for data provenance and
+sourcing methodology, and `docs/ai/ARCHITECTURE.md` for how the minerals tab fits
+the wider application.

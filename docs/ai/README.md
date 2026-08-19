@@ -38,7 +38,6 @@ This directory is the **single source of truth** for AI agents and human contrib
 | [`DECISIONS.md`](DECISIONS.md) | Engineering decision records with rationale |
 | [`OPERATIONS.md`](OPERATIONS.md) | Local setup, CI/CD, deployment |
 | [`AI_WORKFLOW.md`](AI_WORKFLOW.md) | Guardrails for future AI agents |
-| [`PROMPT_TEMPLATES.md`](PROMPT_TEMPLATES.md) | Reusable prompts for common tasks |
 | [`OPEN_QUESTIONS.md`](OPEN_QUESTIONS.md) | Unresolved ambiguities |
 | [`CHANGELOG_FOR_AI.md`](CHANGELOG_FOR_AI.md) | Architecture-level change log for AI context |
 

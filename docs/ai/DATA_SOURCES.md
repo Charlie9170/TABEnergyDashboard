@@ -47,6 +47,7 @@ The workflow exports `EIA_API_KEY` as: `${EIA_API_KEY_SECRET:-$EIA_API_KEY_VAR}`
 - **Format:** HTML page with a table (class `tableStyle`)
 - **No API key required** (public)
 - **Coverage:** 15 settlement points — 9 major hubs + 6 strategic nodes *(verified: `etl/ercot_lmp_etl.py`)*
+- **Source ceiling:** 15 is the **maximum available** from this ERCOT page, not a display choice — the public real-time SPP feed exposes no additional settlement points. A "major hubs only" toggle was removed because there is no meaningful reduced view once that ceiling is known. Do not plan node-expansion work against this source. *(verified: `etl/ercot_lmp_etl.py` `ERCOT_ZONES` = 15 entries, 9 hub + 6 strategic; `app/tabs/price_map_tab.py`)*
 - **Update frequency at source:** Every 5 minutes *(verified: `etl/ercot_lmp_etl.py` comment)*
 - **ETL scrape frequency:** Every 6 hours via GitHub Actions *(verified: `.github/workflows/etl.yml`)*
 

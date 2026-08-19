@@ -26,43 +26,49 @@ Confirmed: a real EIA API key (`z9d4AvwB...gQyiV`, redacted) was committed in pl
 
 ## Data pipeline
 
-### OQ-002: Is `etl/price_map_etl.py` still needed?
+### OQ-002: ~~Is `etl/price_map_etl.py` still needed?~~ — RESOLVED 2026-08-19
 
-`etl/price_map_etl.py` is a demo stub that writes hardcoded nodes. `etl/ercot_lmp_etl.py` is the production replacement that writes `data/price_map.parquet`. The CI workflow (`etl.yml`) only calls `ercot_lmp_etl.py`.
-
-**Question:** Should `price_map_etl.py` be deleted to avoid confusion? Or does it serve a development/testing purpose?
-
-**Status:** Unresolved.
-
----
-
-### OQ-003: Is `etl/interconnection_etl.py` still needed?
-
-`etl/interconnection_etl.py` is an empty stub that only creates an empty queue schema. `etl/ercot_queue_etl.py` is the production replacement. The CI workflow only calls `ercot_queue_etl.py`.
-
-**Question:** Should `interconnection_etl.py` be deleted?
-
-**Status:** Unresolved.
+No. It was a demo stub writing hardcoded nodes to `data/price_map.parquet` — the same
+path the production `etl/ercot_lmp_etl.py` writes. **Deleted.** Running it would have
+overwritten live prices with demo values, and `README.md` listed it as a setup step
+until this cleanup.
 
 ---
 
-### OQ-004: How does `ercot_queue_etl.py` download the latest CDR?
+### OQ-003: ~~Is `etl/interconnection_etl.py` still needed?~~ — RESOLVED 2026-08-19
 
-The ETL script comments suggest it attempts to download the latest CDR from ERCOT's website, falling back to `data/ercot_cdr_may2025.xlsx`. 
-
-**Question:** What URL does it use to download the latest CDR? Does this URL reliably point to the current CDR, or does ERCOT change the URL with each release?
-
-**Status:** Unresolved — requires reading the full `ercot_queue_etl.py` download logic.
+No. **Deleted.** It was an empty stub whose `main()` wrote a zero-row frame over
+`data/queue.parquet`, and `README.md` listed it as a setup step — following the
+documented setup destroyed the queue dataset. Production is `etl/ercot_gis_queue_etl.py`.
 
 ---
 
-### OQ-005: Why does `minerals_deposits.parquet` have only 1 row?
+### OQ-004: ~~How does `ercot_queue_etl.py` download the latest CDR?~~ — MOOT 2026-08-19
 
-The parquet file has only 1 row, making the minerals tab effectively empty.
+No longer relevant. The CDR pipeline used a single hardcoded URL to a May 2025 file
+and never fetched anything newer, which is what motivated the replacement.
 
-**Question:** Is this expected (placeholder/bootstrap state) or a bug in the ETL? Has the minerals ETL been run with the manually curated data?
+The current pipeline (`etl/ercot_gis_queue_etl.py`) resolves the newest report at run
+time instead of hardcoding a URL: it queries ERCOT's public document-listing endpoint
+for report type 15933, filters to documents whose `FriendlyName` starts with
+`GIS_Report_`, and downloads the one with the latest `PublishDate`. Filename-based
+construction was rejected because ERCOT's month naming is inconsistent
+(`GIS_Report_July2026` vs `GIS_Report_Jun2026`).
 
-**Status:** Unresolved.
+*(verified: `etl/ercot_gis_queue_etl.py`)*
+
+---
+
+### OQ-005: Why is `minerals_deposits.parquet` sparse?
+
+Measured at **12 rows on 2026-08-18** — the "only 1 row" figure repeated in earlier
+docs was stale. The dataset is small because it is hand-curated: `etl/mineral_etl.py`
+is not in CI and there is no automated feed (see `docs/MINERALS_DATA_SOURCES.md` for
+why USGS MRDS was unusable).
+
+**Remaining question:** is 12 the intended full set, or a partial load?
+
+**Status:** Partially resolved — count verified, completeness not.
 
 ---
 
@@ -114,13 +120,19 @@ However, a search of the app code finds no reference to `DASHBOARD_MODE`.
 
 ---
 
-### OQ-010: What does `scripts/auto_commit.sh` do?
+### OQ-010: ~~What does `scripts/auto_commit.sh` do?~~ — RESOLVED 2026-08-19
 
-The file `scripts/auto_commit.sh` exists but was not read in full.
+Read in full (27 lines). It is a local convenience wrapper: `cd`s to the repo root,
+checks whether `data/` has changes, and if so runs `git add data/*.parquet` and
+`git commit` with an optional message. The push is commented out, so it never
+touches the remote.
 
-**Question:** Is this script still used? Is it safe to run? Does it overlap with GitHub Actions?
+Safe to run — it only stages `data/*.parquet` and cannot push. It overlaps with the
+commit step in `.github/workflows/etl.yml` but does not conflict: CI commits its own
+ETL output, this is for committing data after a manual local ETL run. Nothing in the
+repository invokes it automatically.
 
-**Status:** Unresolved.
+*(verified: `scripts/auto_commit.sh`)*
 
 ---
 

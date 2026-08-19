@@ -30,8 +30,8 @@
 
 ## DR-002: Exact dependency version pinning for storage layer
 
-**Current implementation:** `streamlit==1.45.1`, `pandas==2.2.3`, `pyarrow==19.0.0`, `numpy==2.1.3` are pinned to exact versions.  
-*(verified: `requirements.txt`)*
+**Current implementation:** `streamlit`, `pandas`, `pyarrow`, `numpy` are pinned to exact versions in `requirements.txt`. The pins were raised in Aug 2026 to releases that publish cp314 wheels, because Streamlit Community Cloud moved its build image to Python 3.14 and the older pins had no wheel — the build fell back to compiling pyarrow from source and failed.  
+*(verified: `requirements.txt` — read it for the current values rather than trusting a copy here)*
 
 **Rationale (verified):** Comment in `requirements.txt` states: "PINNED VERSIONS to prevent schema mismatch — These exact versions ensure compatible parquet schema between local dev and GitHub Actions."
 
@@ -59,14 +59,18 @@
 - ✅ Zero additional infrastructure or cost
 - ✅ ETL logs visible in GitHub Actions UI
 - ❌ GitHub Actions cron may have delays under high load
-- ❌ ETL failures silently produce stale data (all steps have `continue-on-error: true`)
 - ❌ No alerting on ETL failure
+- ❌ The fuel-mix and price-map steps still use `continue-on-error: true`, so those two can fail silently and leave stale data
 
-**Risks:** Silent ETL failure — all ETL steps use `continue-on-error: true`, so a failing ETL will not fail the workflow but will leave stale data in production. *(verified: `.github/workflows/etl.yml`)*
+**Update (Aug 2026):** the blanket `continue-on-error: true` was removed from the
+plants and queue ETLs, and two validator scripts now gate the commit step. A bad
+parse fails the job before `git add`, so `main` keeps its last-good data instead of
+having it overwritten. *(verified: `.github/workflows/etl.yml`)*
 
-**Intentional?** The `continue-on-error` pattern appears intentional (to prevent one failed ETL from blocking others), but the lack of failure notification appears unintentional. *(inferred)*
+**Intentional?** Yes for the two remaining silenced steps; the absence of failure
+notification is still unaddressed. *(inferred)*
 
-**Confidence:** Medium
+**Confidence:** High
 
 ---
 
@@ -162,27 +166,23 @@
 
 ---
 
-## DR-009: Two parallel ETL workflow files (active + legacy disabled)
+## DR-009: Single ETL workflow file — superseded
 
-**Current implementation:** `.github/workflows/etl.yml` is the active workflow (scheduled + workflow_dispatch). `.github/workflows/etl-old.yml` has the schedule removed and is workflow_dispatch only with a comment "DISABLED: Superseded by etl.yml."  
-*(verified: `.github/workflows/etl-old.yml`)*
+**Superseded.** A second, disabled workflow (`etl-old.yml`) was kept alongside
+`etl.yml` for debugging reference. It was deleted in `3377292` because it — and a
+sibling `etl.yml.backup` — contained a plaintext EIA API key. `.github/workflows/`
+now contains only `etl.yml`.
 
-**Rationale (inferred):** The old workflow was preserved for debugging/reference rather than deleted.
+**Outcome:** Do not reintroduce a parallel "legacy" workflow. Git history is the
+reference. See `OPEN_QUESTIONS.md` OQ-001 for the credential handling.
 
-**Tradeoffs:**
-- ✅ Preserved debugging reference
-- ❌ Confusing — two workflow files in the same directory
-- ❌ The old workflow exposes a real API key value in a comment inside `etl.yml.backup` *(verified: `.github/workflows/etl.yml.backup` — see `OPEN_QUESTIONS.md`)*
-
-**Intentional?** Preserving for reference appears intentional; the API key in the backup file is a security risk. *(inferred)*
-
-**Confidence:** Low (rationale is inferred, not stated)*
+*(verified: `.github/workflows/` contains only `etl.yml`, 2026-08-19)*
 
 ---
 
 ## DR-010: `@st.cache_data(ttl=3600)` for data loading
 
-**Current implementation:** `load_parquet()` is decorated with `@st.cache_data(ttl=3600)`. `get_file_modification_time()` uses `ttl=60`.  
+**Current implementation:** `load_parquet()` is decorated with `@st.cache_data(ttl=3600)`; it is the only cached loader.  
 *(verified: `app/utils/loaders.py`)*
 
 **Rationale (inferred):** Prevents repeated parquet disk reads on every Streamlit re-render (which happens on every user interaction). 1-hour TTL matches the ETL cadence (data refreshes every 6 hours anyway).
@@ -194,3 +194,22 @@
 **Intentional?** Yes. *(inferred)*
 
 **Confidence:** High
+
+---
+
+## DR-011: Plotly Scattermapbox for the Price Map (superseded an earlier pydeck-only rule)
+
+**Current implementation:** The Price Map renders with Plotly `go.Scattermapbox`; the Generation Map and Queue Map still use pydeck.  
+*(verified: `app/tabs/price_map_tab.py` — `import plotly.graph_objects as go`, `go.Scattermapbox`)*
+
+**Rationale:** Shipped as release `v1.1-hub-spoke-plotly` (Nov 2025) for reliable tooltip behavior, which pydeck did not provide on this view.
+
+**History worth knowing:** A November 2025 working-state note carried an explicit rule — *"DO NOT migrate Price Map to Plotly"* (citing mapbox authentication hangs) and *"keep 8 ERCOT zones."* **Both halves were subsequently reversed by shipped work** and the note was deleted as stale. The map is Plotly today and carries all 15 settlement points. Recorded here so the retired prohibition is not reintroduced from memory or from an old branch.
+
+**Tradeoffs:**
+- ✅ Working tooltips on the Price Map
+- ❌ Two mapping libraries in one app (Plotly here, pydeck elsewhere)
+
+**Intentional?** Yes.
+
+**Confidence:** High *(verified against current code, not inferred)*

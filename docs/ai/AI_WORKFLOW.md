@@ -69,7 +69,8 @@ Ask yourself:
 - Do not add comments explaining what code does unless they are necessary for a complex algorithm.
 
 ### Policy language
-- Advocacy messages in `app/utils/advocacy.py` reflect TAB's policy positions — do not modify their content without explicit instruction.
+- The "TAB Policy" statements are inline in each tab module (`app/tabs/*.py`). They
+  appear under TAB's name — **do not reword them without explicit instruction.**
 - Use neutral, factual language in any new UI text (data labels, tooltips, error messages).
 - Do not introduce political or editorial commentary in non-advocacy code paths.
 
@@ -146,7 +147,8 @@ When you make a structural change, update the relevant `docs/ai/` file **in the 
 2. Expand the failing ETL step log.
 3. Check if `EIA_API_KEY` is present (diagnostic step in workflow).
 4. If ERCOT HTML scrape fails, check if the URL/table format changed.
-5. If CDR Excel parse fails, check if ERCOT updated the CDR file format.
+5. If the GIS queue parse fails, check whether ERCOT changed the report layout or the
+   sheet/header names `ercot_gis_queue_etl.py` scans for.
 
 ### Streamlit crash on startup
 1. Check `app/main.py` for syntax errors.
@@ -159,7 +161,7 @@ When you make a structural change, update the relevant `docs/ai/` file **in the 
 ## What NOT to do
 
 - ❌ Do not edit `app/main.py.backup`, `etl/ercot_lmp_etl.py.backup`, or any `.backup` file — they are artifacts, not active code.
-- ❌ Do not enable the disabled legacy workflow `.github/workflows/etl-old.yml` without understanding why it was disabled.
+- ❌ Do not add a second ETL workflow file. `etl.yml` is the only one; a previous `etl-old.yml` was deleted for leaking a credential (see `DECISIONS.md` DR-009).
 - ❌ Do not delete backup files without first confirming the active file is correct.
 - ❌ Do not change the `.streamlit_trigger` mechanism without understanding the Streamlit Cloud redeploy dependency.
 - ❌ Do not modify `data/*.parquet` directly — always regenerate via ETL scripts.
