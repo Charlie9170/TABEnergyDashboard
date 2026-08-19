@@ -57,7 +57,6 @@ TABEnergyDashboard/
 │   └── ercot_cdr_may2025.xlsx  # Raw ERCOT CDR source — retired, kept for reference (see ercot_queue_etl.py)
 ├── etl/                        # Data extraction/transform scripts
 │   ├── convert_shapefile.py
-│   ├── demo_fuelmix_data.py    # Fallback demo data generator
 │   ├── eia_fuelmix_etl.py      # EIA fuel mix (production)
 │   ├── eia_plants_etl.py       # EIA generation facilities (production)
 │   ├── ercot_lmp_etl.py        # ERCOT real-time prices (production)
@@ -196,7 +195,6 @@ See [`DATA_SOURCES.md`](DATA_SOURCES.md) for the full schema table for each data
 | `etl/ercot_gis_queue_etl.py` | Production | `data/queue.parquet`, `data/queue_gis_metadata.json` | ERCOT GIS Report (monthly) |
 | `etl/ercot_queue_etl.py` | **Deprecated** (archived) | — not run | ERCOT CDR Excel — retired, see module docstring |
 | `etl/mineral_etl.py` | Manual only (not in CI) | `data/minerals_deposits.parquet` | Manual curation |
-| `etl/demo_fuelmix_data.py` | Fallback | `data/fuelmix.parquet` | Synthetic data |
 | `etl/convert_shapefile.py` | Utility | N/A | USGS shapefile conversion |
 | `etl/texas_counties.py` | Utility | N/A | County → coordinate lookup |
 

@@ -23,15 +23,17 @@
 - **Base URL:** `https://api.eia.gov/v2`
 - **Fuel mix endpoint:** `electricity/rto/fuel-type-data/data/`
 - **Generation endpoint:** EIA Operating Generator Capacity (exact endpoint in `etl/eia_plants_etl.py`)
-- **Auth:** `EIA_API_KEY` — set as GitHub Actions repository secret `secrets.EIA_API_KEY` or variable `vars.EIA_API_KEY`
+- **Auth:** `EIA_API_KEY` — set as GitHub Actions repository secret `secrets.EIA_API_KEY`
 - **ERCOT respondent code:** `ERCO`
-- **Fallback:** If `EIA_API_KEY` is not set, `eia_fuelmix_etl.py` calls `demo_fuelmix_data.py` to generate synthetic data
+- **No key, no write:** if `EIA_API_KEY` is missing, `eia_fuelmix_etl.py` raises
+  `ETLValidationError` and exits 1, leaving the committed `fuelmix.parquet` untouched.
+  It never fabricates data
 *(verified: `etl/eia_fuelmix_etl.py`, `.github/workflows/etl.yml`)*
 
 ### API key resolution order (fuel mix ETL)
 1. Environment variable `EIA_API_KEY`
 2. Streamlit secrets (`st.secrets.get('EIA_API_KEY')`)
-3. Fall back to demo data generation
+3. Raise `ETLValidationError` — exits 1 without writing
 
 *(verified: `etl/eia_fuelmix_etl.py` — `get_api_key()`)*
 

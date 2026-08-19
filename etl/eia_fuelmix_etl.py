@@ -29,7 +29,11 @@ FREQUENCY = "hourly"
 DATA_DIR = Path(__file__).parent.parent / "data"
 
 
-def get_api_key():
+class ETLValidationError(Exception):
+    """Raised when configuration or input data fails validation."""
+
+
+def get_api_key() -> str:
     """
     Get EIA API key from environment or Streamlit secrets.
     
@@ -37,7 +41,7 @@ def get_api_key():
         API key string
         
     Raises:
-        ValueError if API key not found
+        ETLValidationError: If API key not found
     """
     # Try environment variable first
     api_key = os.environ.get('EIA_API_KEY')
@@ -47,14 +51,15 @@ def get_api_key():
         try:
             import streamlit as st
             api_key = st.secrets.get('EIA_API_KEY')
-        except:
-            pass
+        except Exception:
+            pass  # streamlit not installed, or no secrets file configured
     
     if not api_key:
-        print("⚠️  EIA_API_KEY not found. Using demo data for development.")
-        print("   To use real EIA data, set EIA_API_KEY environment variable.")
-        print("   Get your free key at: https://www.eia.gov/opendata/register.php")
-        return None  # Return None to trigger demo mode
+        raise ETLValidationError(
+            "EIA_API_KEY not found. Please set it as an environment variable "
+            "or in Streamlit secrets (.streamlit/secrets.toml). "
+            "Get a free key at https://www.eia.gov/opendata/register.php"
+        )
     
     return api_key
 
@@ -179,14 +184,6 @@ def main():
     try:
         # Get API key
         api_key = get_api_key()
-        
-        # If no API key, use demo data
-        if api_key is None:
-            print("🔄 Generating demo fuel mix data...")
-            from demo_fuelmix_data import main as generate_demo
-            generate_demo()
-            print("✅ Demo fuel mix data generated successfully")
-            return True
         
         # Calculate date range (last 7 days)
         end_date = datetime.utcnow()

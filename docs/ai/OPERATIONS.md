@@ -220,7 +220,7 @@ Raw/interim data formats that ARE gitignored:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `EIA_API_KEY` | Optional | None (falls back to demo data) | EIA API authentication |
+| `EIA_API_KEY` | Required by both EIA ETLs | None — the ETL exits 1 and writes nothing | EIA API authentication |
 | `DASHBOARD_MODE` | Optional | (not implemented in app code) | Template mentions this; not implemented |
 
 *(verified: `.env.template`, `etl/eia_fuelmix_etl.py`)*

@@ -53,13 +53,12 @@
 
 | Script | Status | Notes |
 |--------|--------|-------|
-| `etl/eia_fuelmix_etl.py` | **Production** | Paginated EIA API fetch; falls back to demo data without API key |
+| `etl/eia_fuelmix_etl.py` | **Production** | Paginated EIA API fetch; raises `ETLValidationError` and exits 1 without an API key, writing nothing |
 | `etl/ercot_lmp_etl.py` | **Production** | Scrapes ERCOT public HTML |
 | `etl/eia_plants_etl.py` | **Production** | EIA-860 coords + EIA-923 facility-fuel measured generation only; rolling date windows; fails without API key/data |
 | `etl/ercot_gis_queue_etl.py` | **Production** | ERCOT GIS Report (monthly); discovers newest report via ERCOT's JSON listing endpoint |
 | `etl/ercot_queue_etl.py` | **Deprecated (archived)** | Old CDR pipeline, not run. Still imported by `ercot_gis_queue_etl.py` for its geocoding/atomic-write helpers — do not delete without extracting those first |
 | `etl/mineral_etl.py` | **Manual only** | Not in CI; manual curation; polygon generation requires an external shapefile |
-| `etl/demo_fuelmix_data.py` | **Fallback** | Synthetic data used when `EIA_API_KEY` is absent |
 
 *(verified: `.github/workflows/etl.yml`, ETL file contents)*
 
