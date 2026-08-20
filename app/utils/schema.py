@@ -7,8 +7,11 @@ Defines the expected structure for each dataset and provides functions to:
 - Validate that dataframes have required columns
 """
 
+import logging
 from typing import Dict, List, Tuple
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # Canonical schemas for each dataset
 # Format: dataset_name -> {column_name: expected_dtype}
@@ -156,7 +159,7 @@ def coerce_types(df: pd.DataFrame, dataset: str) -> pd.DataFrame:
                 elif dtype == "object":
                     df[col] = df[col].astype(str)
             except Exception as e:
-                print(f"Warning: Could not coerce column {col} to {dtype}: {e}")
+                logger.warning("Could not coerce column %s to %s: %s", col, dtype, e)
     
     return df
 

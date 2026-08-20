@@ -552,6 +552,7 @@ def render():
         render_data_source_footer("minerals", get_last_updated(df))
         
     except Exception:
+        logger.exception("Minerals tab: unexpected error")
         st.error("Error loading mineral deposit data.")
 
 
