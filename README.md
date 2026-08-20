@@ -4,29 +4,30 @@ An automated, real-time visualization dashboard for ERCOT electricity data and T
 
 **Live dashboard: https://tabenergy.streamlit.app/**
 
-![Dashboard](https://img.shields.io/badge/streamlit-live-brightgreen)
-![Python](https://img.shields.io/badge/python-3.11+-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
+Maintaining this project? Start with [`docs/HANDOFF.md`](docs/HANDOFF.md) — ownership,
+credentials, where to look when something breaks, and known limitations.
 
 ## Overview
 
-This dashboard provides comprehensive insights into the Texas electricity market through four interactive views:
+This dashboard presents the Texas electricity market through six tabs:
 
-1. **ERCOT Fuel Mix** - Hourly generation by fuel type with renewable share tracking
-2. **Price Map** - Real-time electricity prices across ERCOT nodes
-3. **Generation Map** - Existing power generation facilities by fuel type and capacity
-4. **Interconnection Queue** - Proposed generation projects in the ERCOT pipeline
+1. **Fuel Mix** — hourly ERCOT generation by fuel type with renewable share tracking
+2. **Price Map** — settlement point prices across ERCOT
+3. **Generation Map** — existing Texas plants by fuel type, capacity, and measured generation
+4. **Interconnection Queue** — proposed projects in the ERCOT interconnection queue
+5. **Minerals & Critical Minerals** — Texas rare earth and critical mineral deposits
+6. **About & Data Sources** — per-dataset provenance and freshness
 
 Data is automatically updated every 6 hours via GitHub Actions.
 
 ## Features
 
-- 🔄 **Auto-updating**: GitHub Actions fetches fresh data every 6 hours
-- 📊 **Interactive visualizations**: Built with Plotly and pydeck
-- 🎨 **Consistent design**: Fuel-based color coding across all views
-- 🌙 **Dark theme**: Professional, easy-on-the-eyes interface
-- 📱 **Responsive**: Works on desktop and mobile devices
-- ✅ **Data validation**: Automated schema validation ensures data quality
+- **Auto-updating**: GitHub Actions refreshes the data every 6 hours
+- **Interactive visualizations**: Plotly charts and pydeck maps
+- **Consistent design**: fuel colors come from one shared palette (`app/utils/colors.py`)
+- **TAB brand theme**: light theme, TAB navy and red (`.streamlit/config.toml`)
+- **Data validation**: two CI validators gate every data commit
+- **CSV export**: each data tab offers a download of what it is showing
 
 ## Tech Stack
 
@@ -35,7 +36,8 @@ Data is automatically updated every 6 hours via GitHub Actions.
 - **Visualization**: Plotly (charts), pydeck (maps)
 - **Storage**: Parquet files with Snappy compression
 - **Automation**: GitHub Actions
-- **APIs**: EIA v2 API (fuel mix data)
+- **Sources**: EIA v2 API (fuel mix, plants); scraped ERCOT public pages and the
+  monthly ERCOT GIS report (prices, queue)
 
 ## Quick Start
 
@@ -74,7 +76,7 @@ app's Advanced settings, not in this repo). That is why `pandas`, `pyarrow`, and
    `uv venv` it may contain no `pip` at all — run `python -m ensurepip --upgrade`
    first, then install.
 
-4. **Set up API key** ⚠️ **CRITICAL SECURITY STEP**
+4. **Set up API key**
    
    **Never commit API keys to git!** The secrets file is already in `.gitignore`.
    
@@ -127,8 +129,11 @@ TABEnergyDashboard/
 │   │   └── about_tab.py          # Data sources / about view
 │   └── utils/                    # Shared utilities
 │       ├── colors.py             # Fuel color palette
+│       ├── data_sources.py       # Source metadata, CT timestamp formatting
+│       ├── export.py             # CSV download buttons
+│       ├── loaders.py            # Data loading functions
 │       ├── schema.py             # Data schemas
-│       └── loaders.py            # Data loading functions
+│       └── table_styling.py      # Shared dataframe styling
 ├── etl/                          # Data extraction scripts
 │   ├── eia_fuelmix_etl.py        # EIA fuel mix data (production)
 │   ├── ercot_lmp_etl.py          # ERCOT real-time prices (production)
@@ -139,17 +144,25 @@ TABEnergyDashboard/
 │   ├── fuelmix.parquet
 │   ├── price_map.parquet
 │   ├── generation.parquet
+│   ├── eia860_plant_locations.parquet    # EIA-860 coordinate cache
 │   ├── queue.parquet
-│   └── minerals_deposits.parquet
+│   ├── queue_gis_metadata.json           # GIS report totals, used by the validator
+│   ├── minerals_deposits.parquet
+│   └── mineral_polygons_v2.json          # Formation overlays for the minerals map
 ├── scripts/                      # Utility scripts
-│   ├── validate_data.py                  # Data validation
+│   ├── validate_data.py                  # Local schema check across datasets
 │   ├── validate_generation_parquet.py    # CI gate for generation ETL
-│   └── validate_gis_queue_parquet.py     # CI gate for queue ETL
+│   ├── validate_gis_queue_parquet.py     # CI gate for queue ETL
+│   ├── download_usgs_minerals.py         # One-off USGS source fetch
+│   └── auto_commit.sh                    # Local commit convenience wrapper
+├── tests/                        # pytest suite
+├── docs/                         # HANDOFF.md and docs/ai/ reference set
 ├── .streamlit/                   # Streamlit configuration
 │   └── config.toml               # Theme and settings
 ├── .github/workflows/            # GitHub Actions
 │   └── etl.yml                   # Automated data updates
-├── requirements.txt              # Python dependencies
+├── requirements.txt              # Runtime dependencies
+├── requirements-dev.txt          # Adds pytest for local testing
 ├── .gitignore                    # Git ignore patterns
 └── README.md                     # This file
 ```
@@ -188,10 +201,14 @@ Every dashboard view is backed by a live public source. Four ETLs run in CI on t
     with small jitter — accurate to county, not to site; no API key needed
 
 - **Critical Minerals** — `etl/mineral_etl.py` → `data/minerals_deposits.parquet`
-  - Manually curated from `data/manual_mineral_deposits.csv`, compiled from public
-    geological surveys and industry disclosures, with formation overlays in
-    `data/mineral_polygons_v2.json`
+  - Manually compiled from public geological surveys and industry disclosures, with
+    formation overlays in `data/mineral_polygons_v2.json`
   - **Not** run by CI; refreshed only when someone runs the script locally
+  - The script's input, `data/manual_mineral_deposits.csv`, is **not in the
+    repository** — `data/*.csv` is gitignored. Running the script without that file
+    present overwrites the committed parquet with a single placeholder row, so treat
+    `data/minerals_deposits.parquet` as the source of record and do not run this ETL
+    unless you have the CSV
 
 ## GitHub Actions Automation
 
@@ -217,18 +234,14 @@ The dashboard uses GitHub Actions to automatically:
 
 ## Color Palette
 
-Consistent fuel-based color coding across all visualizations:
+Fuel colors live in `app/utils/colors.py` as `FUEL_COLORS_HEX`, and every chart and map
+reads them from there through `get_fuel_color_hex()` / `get_fuel_color_rgb()`. The two
+largest fuels carry the TAB brand colors exactly — gas is TAB red `#C8102E` and wind is
+TAB navy `#1B365D` — with the remaining fuels in muted complements.
 
-| Fuel Type | Color | Hex Code |
-|-----------|-------|----------|
-| Gas | Orange | `#fb923c` |
-| Wind | Teal | `#14b8a6` |
-| Solar | Yellow | `#eab308` |
-| Coal | Gray | `#6b7280` |
-| Nuclear | Purple | `#9333ea` |
-| Storage | Blue | `#3b82f6` |
-| Hydro | Cyan | `#06b6d4` |
-| Biomass | Lime | `#84cc16` |
+That module is the single source of truth; this README deliberately does not restate the
+values, because the table that used to live here had drifted to a completely different
+palette.
 
 ## Development
 
@@ -259,7 +272,9 @@ df = load_parquet("fuelmix.parquet", "fuelmix")
 
 ### Data files not found
 
-Run the ETL scripts to generate data:
+The parquet files are committed, so a fresh clone already has data — a missing file
+usually means you are running from the wrong directory. If you do need to regenerate,
+these four ETLs overwrite the committed files in `data/`:
 ```bash
 python etl/eia_fuelmix_etl.py
 python etl/ercot_lmp_etl.py
@@ -293,51 +308,39 @@ Open ideas:
 
 ## Security
 
-### 🔒 API Key Protection
+### API key protection
 
-**NEVER commit API keys or secrets to version control!**
+**Never commit API keys or secrets to version control.**
 
-This repository is configured to protect your credentials:
+- `.streamlit/secrets.toml` is gitignored and must stay that way
+- `.streamlit/secrets.toml.example` is the template to copy
+- In CI, the key is a GitHub Actions repository secret, not a file
 
-✅ `.streamlit/secrets.toml` is in `.gitignore` (never committed)  
-✅ Template file provided: `.streamlit/secrets.toml.example`  
-✅ Setup instructions require copying template  
+If a secret is ever committed, rotate it first — that is the only step that actually
+protects you. `git rm --cached` stops tracking the file but does not remove it from
+history; scrubbing history requires a rewrite (for example `git filter-repo`) plus a
+force push, and the old value must be treated as compromised regardless.
 
-**If you accidentally commit a secret:**
-1. Immediately regenerate the API key at the provider
-2. Remove from git history: `git rm --cached .streamlit/secrets.toml`
-3. Update `.gitignore` to prevent future commits
-4. Force push: `git push --force` (if already pushed to remote)
+### API keys used
 
-### 🔑 API Keys Used
+- **EIA API key**: required by `eia_fuelmix_etl.py` and `eia_plants_etl.py`. Free from
+  https://www.eia.gov/opendata/register.php
+- **ERCOT**: no key. Prices are scraped from ERCOT's public Real-Time Settlement Point
+  Prices page and the queue comes from the public monthly GIS report
 
-- **EIA API Key**: Free from https://www.eia.gov/opendata/register.php
-- **YesEnergy API Key**: (Coming soon) For real-time price data
-- **ERCOT API**: Currently using public CDR reports (no key needed)
-
-### 📝 Best Practices
+### Practices
 
 1. Never hardcode credentials in Python files
 2. Use environment variables or Streamlit secrets
-3. Rotate API keys periodically
-4. Use separate keys for dev/staging/production
-5. Monitor API usage for suspicious activity
+3. Rotate the EIA key periodically
 
 ## License
 
-MIT License - see LICENSE file for details
+No license file is currently present in this repository, so default copyright applies.
+Adding one requires deciding the copyright holder first.
 
 ## Acknowledgments
 
 - Data provided by EIA (U.S. Energy Information Administration)
 - ERCOT data and market information
 - Built with Streamlit, Plotly, and pydeck
-
-## Screenshots
-
-_Screenshots will be added after deployment_
-
----
-
-**Last Updated**: 2025-10-20  
-**Maintainer**: Charlie9170
