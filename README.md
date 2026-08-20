@@ -342,8 +342,7 @@ force push, and the old value must be treated as compromised regardless.
 
 ## License
 
-No license file is currently present in this repository, so default copyright applies.
-Adding one requires deciding the copyright holder first.
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 Charlie LaMair.
 
 ## Acknowledgments
 
