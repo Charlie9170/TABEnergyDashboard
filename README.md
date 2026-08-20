@@ -148,6 +148,7 @@ TABEnergyDashboard/
 │   ├── queue.parquet
 │   ├── queue_gis_metadata.json           # GIS report totals, used by the validator
 │   ├── minerals_deposits.parquet
+│   ├── manual_mineral_deposits.csv       # Curated minerals input — source of record
 │   └── mineral_polygons_v2.json          # Formation overlays for the minerals map
 ├── scripts/                      # Utility scripts
 │   ├── validate_data.py                  # Local schema check across datasets
@@ -204,11 +205,11 @@ Every dashboard view is backed by a live public source. Four ETLs run in CI on t
   - Manually compiled from public geological surveys and industry disclosures, with
     formation overlays in `data/mineral_polygons_v2.json`
   - **Not** run by CI; refreshed only when someone runs the script locally
-  - The script's input, `data/manual_mineral_deposits.csv`, is **not in the
-    repository** — `data/*.csv` is gitignored. Running the script without that file
-    present overwrites the committed parquet with a single placeholder row, so treat
-    `data/minerals_deposits.parquet` as the source of record and do not run this ETL
-    unless you have the CSV
+  - `data/manual_mineral_deposits.csv` is the source of record and is committed
+    (`data/*.csv` is gitignored, so `.gitignore` negates it explicitly). Edit the CSV
+    to change the dataset, then rerun the script to regenerate the parquet
+  - The script refuses to run and exits non-zero if that CSV is missing or has no
+    rows, so it cannot overwrite the curated deposits with an empty dataset
 
 ## GitHub Actions Automation
 
@@ -281,6 +282,11 @@ python etl/ercot_lmp_etl.py
 python etl/eia_plants_etl.py
 python etl/ercot_gis_queue_etl.py
 ```
+
+Minerals is separate: `python etl/mineral_etl.py` regenerates
+`data/minerals_deposits.parquet` from the committed
+`data/manual_mineral_deposits.csv`. It exits non-zero without writing if that CSV is
+missing or empty.
 
 ### EIA API errors
 

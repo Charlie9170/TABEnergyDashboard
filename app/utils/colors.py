@@ -66,7 +66,7 @@ def get_fuel_color_hex(fuel_type: str) -> str:
         fuel_type: Fuel type name (case-insensitive)
         
     Returns:
-        Hex color string (e.g., '#fb923c')
+        Hex color string (e.g., '#E8EAED' for SOLAR)
     """
     # Normalize fuel type and handle variations
     fuel_normalized = fuel_type.upper().strip()

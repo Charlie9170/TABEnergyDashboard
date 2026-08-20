@@ -61,6 +61,13 @@ triggered by hand from the Actions tab. Each run, in order:
 `data/minerals_deposits.parquet` and is run by hand, then committed. It is a small
 manually curated table, so it will simply sit unchanged until someone updates it.
 
+To update it, edit `data/manual_mineral_deposits.csv` — that CSV is the source of
+record, it is committed, and it is the only input the script has. Then run
+`python etl/mineral_etl.py` from the repo root and commit the regenerated parquet
+alongside the CSV. If the CSV is missing or has no rows the script exits non-zero
+without writing, so a bad run leaves the existing deposits in place rather than
+replacing them with a placeholder.
+
 ## When something breaks
 
 - **App errors:** Streamlit Cloud → Manage app → logs. Note that a broken tab is

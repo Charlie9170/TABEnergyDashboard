@@ -48,6 +48,10 @@ env/
 # data/*.parquet  # DISABLED - Allow parquet files for automated dashboard updates
 data/*.csv
 data/*.json
+# Hand-curated mineral deposits — the only input to mineral_etl.py and the sole
+# source of record for minerals_deposits.parquet. Tracked because nothing else
+# can regenerate it, and the ETL now refuses to run without it.
+!data/manual_mineral_deposits.csv
 # GIS queue ETL provenance sidecar (Task 8) — small, human-readable,
 # committed alongside queue.parquet so the validation gate and About tab
 # can read the source report's own totals without re-fetching it.
